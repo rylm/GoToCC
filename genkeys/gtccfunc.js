@@ -151,31 +151,34 @@ function TxSetUpScholarshipJSON(keys, reward, task_info) {
 
 }
 
-function TxVoteForScholarshipJSON(keys, vote_status) {
+function TxVoteForScholarshipJSON(keys, vote_status, msg_key) {
 	var TxVoteForScholarshipT = Exonum.newType({
-	    size: 8,
+	    size: 40,
 	    fields: {
-	        vote_status: {type: Exonum.Int64, size: 8, from: 0, to: 8}
+	        vote_status: {type: Exonum.Int64, size: 8, from: 0, to: 8},
+	        msg_key: {type: Exonum.PublicKey, size: 32, from: 8, to: 40}
 	    }
 	});
 
 	var keyPair = keys;
 
 	var data = {
-		vote_status: vote_status
+		vote_status: vote_status,
+		msg_key: msg_key
 	};
 
 	signature = Exonum.sign(keyPair.secretKey, data, TxVoteForScholarshipT);
 
 	voteForScholarship = Exonum.newMessage({
-		size: 8,
+		size: 40,
 		network_id: 0,
 		protocol_version: 0,
 		service_id: 1,
 		message_id: 3,
 		signature: signature,
 		fields: {
-	        vote_status: {type: Exonum.Int64, size: 8, from: 0, to: 8}
+	        vote_status: {type: Exonum.Int64, size: 8, from: 0, to: 8},
+	        msg_key: {type: Exonum.PublicKey, size: 32, from: 8, to: 40}
 	    }
 	});
 
@@ -183,7 +186,8 @@ function TxVoteForScholarshipJSON(keys, vote_status) {
 
 	return {
 		"body": {
-	    "vote_status": vote_status
+	    "vote_status": vote_status,
+	    "msg_key": msg_key
 	  	},
 	  	"network_id": 0,
 	  	"protocol_version": 0,
@@ -194,12 +198,13 @@ function TxVoteForScholarshipJSON(keys, vote_status) {
 
 }
 
-function TxLookWhatIDidJSON(keys, signer_info) {
+function TxLookWhatIDidJSON(keys, signer_info, msg_key) {
 	var TxLookWhatIDidT = Exonum.newType({
-	    size: 40,
+	    size: 72,
 	    fields: {
 	        pub_key: {type: Exonum.PublicKey, size: 32, from: 0, to: 32},
 	        signer_info: {type: Exonum.String, size: 8, from: 32, to: 40},
+	        msg_key: {type: Exonum.PublicKey, size: 32, from: 40, to: 72}
 	    }
 	});
 
@@ -207,13 +212,14 @@ function TxLookWhatIDidJSON(keys, signer_info) {
 
 	var data = {
 		pub_key: keyPair.publicKey,
-		signer_info: signer_info
+		signer_info: signer_info,
+		msg_key: msg_key
 	};
 
 	signature = Exonum.sign(keyPair.secretKey, data, TxLookWhatIDidT);
 
 	setUpScholarship = Exonum.newMessage({
-		size: 40,
+		size: 72,
 		network_id: 0,
 		protocol_version: 0,
 		service_id: 1,
@@ -222,6 +228,7 @@ function TxLookWhatIDidJSON(keys, signer_info) {
 		fields: {
 	        pub_key: {type: Exonum.PublicKey, size: 32, from: 0, to: 32},
 	        signer_info: {type: Exonum.String, size: 8, from: 32, to: 40},
+	        msg_key: {type: Exonum.PublicKey, size: 32, from: 40, to: 72}
 	    }
 	});
 
@@ -230,7 +237,8 @@ function TxLookWhatIDidJSON(keys, signer_info) {
 	return {
 		"body": {
 	    "pub_key": keyPair.publicKey,
-	    "signer_info": signer_info
+	    "signer_info": signer_info,
+	    "msg_key": msg_key
 	  	},
 	  	"network_id": 0,
 	  	"protocol_version": 0,
