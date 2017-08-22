@@ -390,7 +390,7 @@ fn main() {
         services_configs: Default::default(),
     };
 
-    let mut node = Node::new(blockchain, node_cfg); 
+    let mut node = Node::new(blockchain, node_cfg);
     node.run().unwrap();
 
 }
