@@ -42,38 +42,38 @@ const INIT_BALANCE: u64 = 100;
 
 
 
-const ADMIN_PUBLIC_KEY: PublicKey = PublicKey::new([0x9c,
-    0xd1,
-    0x29,
-    0x92,
-    0x9c,
-    0x2b,
-    0x5a,
-    0xfb,
-    0x7f,
-    0x7e,
-    0x73,
-    0x20,
-    0xce,
-    0x28,
-    0x9e,
-    0x26,
-    0xae,
-    0x90,
-    0x20,
-    0xe9,
-    0xa0,
-    0x3a,
-    0x44,
-    0xb8,
-    0x80,
-    0x95,
-    0xb5,
-    0x79,
-    0x86,
-    0x32,
-    0xe6,
-    0xb1]);//;
+// let ADMIN_PUBLIC_KEY: PublicKey = PublicKey::new([0x9c,
+//     0xd1,
+//     0x29,
+//     0x92,
+//     0x9c,
+//     0x2b,
+//     0x5a,
+//     0xfb,
+//     0x7f,
+//     0x7e,
+//     0x73,
+//     0x20,
+//     0xce,
+//     0x28,
+//     0x9e,
+//     0x26,
+//     0xae,
+//     0x90,
+//     0x20,
+//     0xe9,
+//     0xa0,
+//     0x3a,
+//     0x44,
+//     0xb8,
+//     0x80,
+//     0x95,
+//     0xb5,
+//     0x79,
+//     0x86,
+//     0x32,
+//     0xe6,
+//     0xb1]);//;
 
 
 encoding_struct! {
@@ -130,6 +130,31 @@ message! {
     }
 }
 
+impl Transaction for TxFullScholarship {
+  fn verify(&self) -> bool {
+        self.verify_signature(self.pub_key())
+    }
+
+    fn execute(&self, view: &mut Fork) {
+         if self.vote_status() == 1 {
+            
+            let mut schema = CurrencySchema { view };
+            let usr_wallet = schema.wallet(self.pub_key()); 
+            let amount = self.reward();
+
+            if let Some(mut usr_wallet) = usr_wallet {
+                usr_wallet.increase(amount);
+
+                schema.wallets().put(self.pub_key(), usr_wallet);
+            }
+        }
+    }
+}
+
+
+
+// /// /// /// Implement Later /// /// /// //
+
 // impl TxFullScholarship {
 //     fn blank() -> TxFullScholarship {
 //         TxFullScholarship.raw {
@@ -142,45 +167,65 @@ message! {
 //     }
 // }
 
-message! {
-    struct TxSetUpScholarship {
-        const TYPE = SERVICE_ID;
-        const ID = TX_SET_UP_TASK_ID;
-        const SIZE = 16;
+// message! {
+//     struct TxSetUpScholarship {
+//         const TYPE = SERVICE_ID;
+//         const ID = TX_SET_UP_TASK_ID;
+//         const SIZE = 16;
 
-        field reward:      u64         [00 => 08]
-        field task_info:   &str        [08 => 16]
-    }
-}
+//         field reward:      u64         [00 => 08]
+//         field task_info:   &str        [08 => 16]
+//     }
+// }
 
-message! {
-    struct TxLookWhatIDid {
-        const TYPE = SERVICE_ID;
-        const ID = TX_VOTE_FOR_TASK_ID;
-        const SIZE = 72;
+// message! {
+//     struct TxLookWhatIDid {
+//         const TYPE = SERVICE_ID;
+//         const ID = TX_VOTE_FOR_TASK_ID;
+//         const SIZE = 72;
 
-        field pub_key:     &PublicKey  [00 => 32]
-        field signer_info: &str        [32 => 40]
+//         field pub_key:     &PublicKey  [00 => 32]
+//         field signer_info: &str        [32 => 40]
 
-        field msg_key:     &PublicKey  [40 => 72]
-    }
-}
+//         field msg_key:     &PublicKey  [40 => 72]
+//     }
+// }
 
-message! {
-    struct TxVoteForScholarship {
-        const TYPE = SERVICE_ID;
-        const ID = TX_VOTE_FOR_TASK_ID;
-        const SIZE = 40;
+// message! {
+//     struct TxVoteForScholarship {
+//         const TYPE = SERVICE_ID;
+//         const ID = TX_VOTE_FOR_TASK_ID;
+//         const SIZE = 40;
 
-        field vote_status: u64         [00 => 08]
+//         field vote_status: u64         [00 => 08]
 
-        field msg_key:     &PublicKey  [08 => 40]
-    }
-}
+//         field msg_key:     &PublicKey  [08 => 40]
+//     }
+// }
 
+// // Transaction behaviour
+// impl Transaction for TxVoteForScholarship {
+//     fn verify(&self) -> bool {
+//         //(self.verify_signature(self.pub_key()))
+//         (self.verify_signature(&ADMIN_PUBLIC_KEY))
+//     }
 
+//     fn execute(&self, view: &mut Fork) {
+//         let mut schema = CurrencySchema { view };
 
-// Wallet creation
+//         if self.vote_id == 1 {
+//             let usr_wallet = schema.wallet(self.pub_key()); 
+//             let amount = self.amount();
+
+//             if let Some(mut usr_wallet) = usr_wallet {
+//                 usr_wallet.increase(amount);
+
+//                 schema.wallets().put(self.pub_key(), usr_wallet);
+//             }
+//         }
+//     }
+// }
+
 message! {
     struct TxCreateWallet {
         const TYPE = SERVICE_ID;
@@ -189,29 +234,6 @@ message! {
 
         field pub_key:     &PublicKey  [00 => 32]
         field name:        &str        [32 => 40]
-    }
-}
-
-// Transaction behaviour
-impl Transaction for TxVoteForScholarship {
-    fn verify(&self) -> bool {
-        //(self.verify_signature(self.pub_key()))
-        (self.verify_signature(&ADMIN_PUBLIC_KEY))
-    }
-
-    fn execute(&self, view: &mut Fork) {
-        let mut schema = CurrencySchema { view };
-
-        if self.vote_id == 1 {
-            let usr_wallet = schema.wallet(self.pub_key()); 
-            let amount = self.amount();
-
-            if let Some(mut usr_wallet) = usr_wallet {
-                usr_wallet.increase(amount);
-
-                schema.wallets().put(self.pub_key(), usr_wallet);
-            }
-        }
     }
 }
 
@@ -242,13 +264,14 @@ struct CryptocurrencyApi {
 #[derive(Clone, Serialize, Deserialize)]
 enum TransactionRequest {
     CreateWallet(TxCreateWallet),
+    FullScholarship(TxFullScholarship),
 }
 
 impl Into<Box<Transaction>> for TransactionRequest {
     fn into(self) -> Box<Transaction> {
         match self {
             TransactionRequest::CreateWallet(trans) => Box::new(trans),
-            TransactionRequest::Transfer(trans) => Box::new(trans),
+            TransactionRequest::FullScholarship(trans) => Box::new(trans),
         }
     }
 }
@@ -295,7 +318,7 @@ impl Service for CurrencyService {
         -> Result<Box<Transaction>, encoding::Error> {
 
         let trans: Box<Transaction> = match raw.message_type() {
-            //TODO
+            TX_GOTO_FULL_SCHOLARSHIP_ID => Box::new(TxFullScholarship::from_raw(raw)?),
             TX_CREATE_WALLET_ID => Box::new(TxCreateWallet::from_raw(raw)?),
             _ => {
                 return Err(encoding::Error::IncorrectMessageType {
@@ -365,9 +388,9 @@ fn main() {
         api: api_cfg,
         mempool: Default::default(),
         services_configs: Default::default(),
-    };ckchain
+    };
 
-    let mut node = Node::new(blo, node_cfg); 
+    let mut node = Node::new(blockchain, node_cfg); 
     node.run().unwrap();
 
 }
