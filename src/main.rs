@@ -23,58 +23,38 @@ use router::Router;
 // Service identifier
 const SERVICE_ID: u16 = 1;
 
+
+// Identifier for scholarship data initialization
 const TX_GOTO_FULL_SCHOLARSHIP_ID: u16 = 0;
 
 // Identifier for wallet creation transaction type
 const TX_CREATE_WALLET_ID: u16 = 1;
 
-const TX_SET_UP_TASK_ID: u16 = 2;
-const TX_VOTE_FOR_TASK_ID: u16 = 3;
-
-const TX_LOOK_WHAT_I_DID_ID: u16 = 4;
-
-const TASK_INITIATOR_ADMIN_ID: u16 = 1;
-const TASK_INITIATOR_ID: u16 = 2;
-const TASK_SIGNER_ID: u16 = 3;
-
 // Starting balance of a newly created wallet
 const INIT_BALANCE: u64 = 100;
 
+// -------- Currency Schema init -------- //
+
+#[derive(Debug)]
+pub struct CurrencySchema<'a> {
+    view: &'a mut Fork,
+}
+
+impl<'a> CurrencySchema<'a> {
+    pub fn wallets(&mut self) -> MapIndex <&mut Fork, PublicKey, Wallet> {
+        let prefix = blockchain::gen_prefix(SERVICE_ID, 0, &());
+        MapIndex::new(prefix, self.view)
+    }
+
+    pub fn  wallet (&mut self, pub_key: &PublicKey) -> Option<Wallet> {
+        self.wallets().get(pub_key)
+    }
+}
+
+// ------------------------------------- //
 
 
-// let ADMIN_PUBLIC_KEY: PublicKey = PublicKey::new([0x9c,
-//     0xd1,
-//     0x29,
-//     0x92,
-//     0x9c,
-//     0x2b,
-//     0x5a,
-//     0xfb,
-//     0x7f,
-//     0x7e,
-//     0x73,
-//     0x20,
-//     0xce,
-//     0x28,
-//     0x9e,
-//     0x26,
-//     0xae,
-//     0x90,
-//     0x20,
-//     0xe9,
-//     0xa0,
-//     0x3a,
-//     0x44,
-//     0xb8,
-//     0x80,
-//     0x95,
-//     0xb5,
-//     0x79,
-//     0x86,
-//     0x32,
-//     0xe6,
-//     0xb1]);//;
-
+// -------- Wallet struct init -------- //
 
 encoding_struct! {
     struct Wallet {
@@ -98,21 +78,11 @@ impl Wallet {
     }
 }
 
-#[derive(Debug)]
-pub struct CurrencySchema<'a> {
-    view: &'a mut Fork,
-}
+// ----------------------------------- //
 
-impl<'a> CurrencySchema<'a> {
-    pub fn wallets(&mut self) -> MapIndex <&mut Fork, PublicKey, Wallet> {
-        let prefix = blockchain::gen_prefix(SERVICE_ID, 0, &());
-        MapIndex::new(prefix, self.view)
-    }
 
-    pub fn  wallet (&mut self, pub_key: &PublicKey) -> Option<Wallet> {
-        self.wallets().get(pub_key)
-    }
-}
+
+// -------- Scholarship SC transaction init -------- //
 
 message! {
     struct TxFullScholarship {
@@ -151,80 +121,11 @@ impl Transaction for TxFullScholarship {
     }
 }
 
+// ------------------------------------------------------- //
 
 
-// /// /// /// Implement Later /// /// /// //
 
-// impl TxFullScholarship {
-//     fn blank() -> TxFullScholarship {
-//         TxFullScholarship.raw {
-//             0,
-//             "",
-//             [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
-//             "",
-//             0 
-//         };
-//     }
-// }
-
-// message! {
-//     struct TxSetUpScholarship {
-//         const TYPE = SERVICE_ID;
-//         const ID = TX_SET_UP_TASK_ID;
-//         const SIZE = 16;
-
-//         field reward:      u64         [00 => 08]
-//         field task_info:   &str        [08 => 16]
-//     }
-// }
-
-// message! {
-//     struct TxLookWhatIDid {
-//         const TYPE = SERVICE_ID;
-//         const ID = TX_VOTE_FOR_TASK_ID;
-//         const SIZE = 72;
-
-//         field pub_key:     &PublicKey  [00 => 32]
-//         field signer_info: &str        [32 => 40]
-
-//         field msg_key:     &PublicKey  [40 => 72]
-//     }
-// }
-
-// message! {
-//     struct TxVoteForScholarship {
-//         const TYPE = SERVICE_ID;
-//         const ID = TX_VOTE_FOR_TASK_ID;
-//         const SIZE = 40;
-
-//         field vote_status: u64         [00 => 08]
-
-//         field msg_key:     &PublicKey  [08 => 40]
-//     }
-// }
-
-// // Transaction behaviour
-// impl Transaction for TxVoteForScholarship {
-//     fn verify(&self) -> bool {
-//         //(self.verify_signature(self.pub_key()))
-//         (self.verify_signature(&ADMIN_PUBLIC_KEY))
-//     }
-
-//     fn execute(&self, view: &mut Fork) {
-//         let mut schema = CurrencySchema { view };
-
-//         if self.vote_id == 1 {
-//             let usr_wallet = schema.wallet(self.pub_key()); 
-//             let amount = self.amount();
-
-//             if let Some(mut usr_wallet) = usr_wallet {
-//                 usr_wallet.increase(amount);
-
-//                 schema.wallets().put(self.pub_key(), usr_wallet);
-//             }
-//         }
-//     }
-// }
+// -------- Wallet registration transaction -------- //
 
 message! {
     struct TxCreateWallet {
@@ -254,6 +155,12 @@ impl Transaction for TxCreateWallet {
     }
 }
 
+// ----------------------------------------------- //
+
+
+
+
+// -------- Api and transaction pipeline initialisation -------- //
 
 #[derive(Clone)]
 struct CryptocurrencyApi {
@@ -339,18 +246,27 @@ impl Service for CurrencyService {
     }
 }
 
+// --------------------------------------------------- //
+
+
+
 fn main() {
     exonum::helpers::init_logger().unwrap();
     
+
+    // Current state database
     let db = MemoryDB::new();
     
     let services: Vec<Box<Service>> = vec![
         Box::new(CurrencyService),
     ];
 
+    // Vlockchain initialisation
     let blockchain = Blockchain::new(Box::new(db), services);
 
 
+    // For debug purpose only hardcoded manual node init avaliable
+    
     let (consensus_public_key, consensus_secret_key) =
     exonum::crypto::gen_keypair();
     let (service_public_key, service_secret_key) =
@@ -361,9 +277,12 @@ fn main() {
     service_key: service_public_key,
     };
 
+
+    // Root block of the blockchain
     let genesis = GenesisConfig::new(vec![validator_keys].into_iter());
 
-    // external port
+    
+    // External port -- for api interactions
     let api_adress = "0.0.0.0:8000".parse().unwrap();
     let api_cfg = NodeApiConfig {
         public_api_address: Some(api_adress),
@@ -371,6 +290,7 @@ fn main() {
         ..Default::default()
     };
 
+    // Internal port -- for node-to-node interactions
     let peer_adress = "0.0.0.0:2000".parse().unwrap();
 
     // Complete node configuration
@@ -390,6 +310,8 @@ fn main() {
         services_configs: Default::default(),
     };
 
+
+    // Final setup
     let mut node = Node::new(blockchain, node_cfg);
     node.run().unwrap();
 
