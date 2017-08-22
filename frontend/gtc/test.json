@@ -1,0 +1,11 @@
+[{ "name" : "test"
+, "discription" : "project@hostname.com",
+"price" : "500 GTC"
+}, { "name" : "test2"
+, "discription" : "project@hostname.com2",
+"price" : "5002 GTC"
+},
+{ "name" : "test3"
+, "discription" : "project@hostname.com3",
+"price" : "5003 GTC"
+}]
