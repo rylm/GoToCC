@@ -1,0 +1,6 @@
+[package]
+name = "GoToCC"
+version = "0.1.0"
+authors = ["rylm <danilov.sasha444sch@gmail.com>"]
+
+[dependencies]
