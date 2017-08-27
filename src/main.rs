@@ -152,20 +152,6 @@ impl Transaction for TxFullScholarship {
     }
 }
 
-// message! {
-//     struct a {
-//         const SIZE = 8;
-
-//         field a: u16 [00 => 08]
-//     }
-// }
-
-// impl Transaction for a {
-//     fn verify (&self) -> boll {
-//         self.verify_signature(self.pub_key())
-//     }
-// }
-
 // ------------------------------------------------------- //
 
 
@@ -294,6 +280,12 @@ impl Service for CurrencyService {
 // --------------------------------------------------- //
 
 
+// -------------   Request and stuff   --------------- //
+
+
+// --------------------------------------------------- //
+
+
 
 fn main() {
     exonum::helpers::init_logger().unwrap();
@@ -329,19 +321,23 @@ fn main() {
     
     // External port -- for api interactions
     let api_adress = "0.0.0.0:8000".parse().unwrap();
+    let api_adress2 = "0.0.0.0:8001".parse().unwrap();
+    
     let api_cfg = NodeApiConfig {
         public_api_address: Some(api_adress),
+        private_api_address: Some(api_adress2),
         enable_blockchain_explorer: true,
         ..Default::default()
     };
 
     // Internal port -- for node-to-node interactions
     let peer_adress = "0.0.0.0:2000".parse().unwrap();
+    let test_peer = "1.2.3.4:2000".parse().unwrap();
 
     // Complete node configuration
     let node_cfg = NodeConfig {
         listen_address: peer_adress,
-        peers: vec![],
+        peers: vec![test_peer],
         service_public_key,
         service_secret_key,
         consensus_public_key,
@@ -354,7 +350,6 @@ fn main() {
         mempool: Default::default(),
         services_configs: Default::default(),
     };
-
 
     // Final setup
     let mut node = Node::new(blockchain, node_cfg);
