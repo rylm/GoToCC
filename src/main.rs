@@ -6,7 +6,7 @@ extern crate router;
 extern crate bodyparser;
 extern crate iron;
 
-use exonum::blockchain::{self, Blockchain, Service, GenesisConfig,
+use exonum::blockchain::{self, Blockchain, Service, GenesisConfig, ConsensusConfig,
                          ValidatorKeys, Transaction, ApiContext};
 use exonum::node::{Node, NodeConfig, NodeApiConfig, TransactionSend,
                    ApiSender, NodeChannel};
@@ -14,7 +14,8 @@ use exonum::messages::{RawTransaction, FromRaw, Message};
 use exonum::storage::{Fork, MemoryDB, MapIndex, LevelDB, LevelDBOptions};
 use exonum::crypto::{PublicKey, Hash};
 use exonum::encoding::{self, Field};
-use exonum::api::{Api, ApiError};
+use exonum::api::{Api, ApiError}; 
+use std::collections::BTreeMap;
 use iron::prelude::*;
 use iron::Handler;
 use router::Router;
@@ -322,8 +323,13 @@ fn main() {
     };
 
 
+    let consensus_config = ConsensusConfig {
+        txs_block_limit: 1,
+        ..Default::default()
+    };
+
     // Root block of the blockchain
-    let genesis = GenesisConfig::new(vec![validator_keys].into_iter());
+    let genesis = GenesisConfig::new_with_consensus(consensus_config, vec![validator_keys].into_iter());
 
     
     // External port -- for api interactions
