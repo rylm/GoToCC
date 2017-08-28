@@ -1,6 +1,6 @@
-function sendData(data2){
+function sendData(data2,url2){
   $.ajax({
-    url:"http://google.com",
+    url:url2,
     type:"POST",
     headers: {
 
@@ -10,6 +10,5 @@ function sendData(data2){
 
 
 
-console.log('send data: ok');
-
+	console.log('send data: ok');
 }

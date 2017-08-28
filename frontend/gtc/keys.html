@@ -50,53 +50,29 @@
     <div class="container">
 
       <div class="starter-template">
-        <h1>Доступные контракты</h1>
+        <h1>Экспорт/Импорт ключей</h1>
       </div>
 
       <div class="panel panel-default">
+        <label for="usr">Приватный ключ</label>
+        <input type="text" class="form-control" id="privk">
+        <label for="usr">Публичный ключ</label>
+        <input type="text" class="form-control" id="pubk">
+        <button type="button" class="btn btn-success" id="ImpBut">Импортировать ключи</button>
+        <button type="button" class="btn btn-success" id="ExBut">Экспортировать ключи</button>
+        <button type="button" class="btn btn-success" id="GenBut">Сгенерировать ключи</button>
 
 
 
 
-  <table class="table" id='contracts'>
-
-    <tr>
-     <th>#</th>
-     <th>Название</th>
-     <th>Описание контракта</th>
-     <th>Награда</th>
-     <th></th>
-   </tr>
-
-
-
-  </table>
-</div>
-    </div><!-- /.container -->
-
-    <div id="modal_form"><!-- Сaмo oкнo -->
-      <span id="modal_close">X</span> <!-- Кнoпкa зaкрыть -->
-      <div class="form-group">
-  <label for="git">GitHub repository:</label>
-  <input type="text" class="form-control" id="git">
-</div>
-<div class="form-group">
-  <label for="comment">Comment:</label>
-  <textarea class="form-control" rows="5" id="comment" style="resize: none;"></textarea>
-</div>
-<button type="button" class="btn btn-success" id="SendBut">Отправить</button>
-      <!-- Тут любoе сoдержимoе -->
-</div>
-<div id="overlay"></div><!-- Пoдлoжкa -->
 
 <script src="js/exonum-client.min.js"></script>
 <script src="js/gtccfunc.js"></script>
 <script src="js/kie.js"></script>
 <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
-<script src="js/send.js"></script>
-<script src="js/sendAnswer.js"></script>
-<script src="js/popup.js"></script>
-<script src="js/gc.js"></script>
+<script src="js/keys.js"></script>
+
+
 
 
     <!-- Bootstrap core JavaScript -->
