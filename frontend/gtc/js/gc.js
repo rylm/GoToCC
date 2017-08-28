@@ -1,5 +1,5 @@
 console.log('contracts');
-$.get( "http://127.0.0.1:3000/test.json", function( data ) {
+$.get( "http://127.0.0.1:8000/test.json", function( data ) {
   console.log(1);
   console.log(data);
   data.forEach(function(item, i, arr) {

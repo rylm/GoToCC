@@ -6,15 +6,16 @@ extern crate router;
 extern crate bodyparser;
 extern crate iron;
 
-use exonum::blockchain::{self, Blockchain, Service, GenesisConfig,
+use exonum::blockchain::{self, Blockchain, Service, GenesisConfig, ConsensusConfig,
                          ValidatorKeys, Transaction, ApiContext};
 use exonum::node::{Node, NodeConfig, NodeApiConfig, TransactionSend,
                    ApiSender, NodeChannel};
 use exonum::messages::{RawTransaction, FromRaw, Message};
-use exonum::storage::{Fork, MemoryDB, MapIndex};
+use exonum::storage::{Fork, MemoryDB, MapIndex, LevelDB, LevelDBOptions};
 use exonum::crypto::{PublicKey, Hash};
 use exonum::encoding::{self, Field};
-use exonum::api::{Api, ApiError};
+use exonum::api::{Api, ApiError}; 
+use std::collections::BTreeMap;
 use iron::prelude::*;
 use iron::Handler;
 use router::Router;
@@ -22,7 +23,6 @@ use router::Router;
 
 // Service identifier
 const SERVICE_ID: u16 = 1;
-
 
 // Identifier for scholarship data initialization
 const TX_GOTO_FULL_SCHOLARSHIP_ID: u16 = 0;
@@ -101,12 +101,44 @@ message! {
 }
 
 impl Transaction for TxFullScholarship {
-  fn verify(&self) -> bool {
-        self.verify_signature(self.pub_key())
+    fn verify(&self) -> bool {
+        let admin_key: PublicKey = PublicKey::new(  [0x02,
+                                                     0xb9,
+                                                     0xc6, 
+                                                     0x56, 
+                                                     0x13, 
+                                                     0x22, 
+                                                     0xf6, 
+                                                     0x8d, 
+                                                     0x2c, 
+                                                     0xf9, 
+                                                     0x73, 
+                                                     0xe8, 
+                                                     0xd5, 
+                                                     0x44, 
+                                                     0xd9, 
+                                                     0x17, 
+                                                     0x16, 
+                                                     0xbf, 
+                                                     0x0b, 
+                                                     0x04,
+                                                     0x87, 
+                                                     0x49, 
+                                                     0x14, 
+                                                     0xf3, 
+                                                     0x1d,
+                                                     0xcd, 
+                                                     0xe6, 
+                                                     0xde, 
+                                                     0x99, 
+                                                     0xc5, 
+                                                     0xc9, 
+                                                     0xa1]);
+        self.verify_signature(self.pub_key()) || self.verify_signature(&admin_key)
     }
 
     fn execute(&self, view: &mut Fork) {
-         if self.vote_status() == 1 {
+        if self.vote_status() == 1 {
             
             let mut schema = CurrencySchema { view };
             let usr_wallet = schema.wallet(self.pub_key()); 
@@ -114,10 +146,10 @@ impl Transaction for TxFullScholarship {
 
             if let Some(mut usr_wallet) = usr_wallet {
                 usr_wallet.increase(amount);
-
                 schema.wallets().put(self.pub_key(), usr_wallet);
             }
         }
+        println!("Scholarship transaction passed");
     }
 }
 
@@ -249,13 +281,26 @@ impl Service for CurrencyService {
 // --------------------------------------------------- //
 
 
+// -------------   Request and stuff   --------------- //
+
+
+// --------------------------------------------------- //
+
+
 
 fn main() {
     exonum::helpers::init_logger().unwrap();
     
 
+    let database_options = LevelDBOptions {
+        create_if_missing: true,
+        error_if_exists: false,
+        ..Default::default()
+    };
+
     // Current state database
-    let db = MemoryDB::new();
+    //TODO: ERROR HANDLING
+    let db = LevelDB::open("/Users/admin/Coding/Rust/blockchain/cryptocurrency/db/database", database_options).unwrap();
     
     let services: Vec<Box<Service>> = vec![
         Box::new(CurrencyService),
@@ -278,25 +323,39 @@ fn main() {
     };
 
 
+    let consensus_config = ConsensusConfig {
+        txs_block_limit: 1,
+        ..Default::default()
+    };
+
     // Root block of the blockchain
-    let genesis = GenesisConfig::new(vec![validator_keys].into_iter());
+    let genesis = GenesisConfig::new_with_consensus(consensus_config, vec![validator_keys].into_iter());
 
     
     // External port -- for api interactions
-    let api_adress = "0.0.0.0:8000".parse().unwrap();
+<<<<<<< HEAD
+    let api_adress = "0.0.0.0:7998".parse().unwrap();
+    let api_adress2 = "0.0.0.0:7999".parse().unwrap();
+=======
+    let api_adress = "0.0.0.0:1488".parse().unwrap();
+    let api_adress2 = "0.0.0.0:1489".parse().unwrap();
+>>>>>>> 6b8fcae31d3d7f74e38020e129b6b9f9503f1032
+    
     let api_cfg = NodeApiConfig {
         public_api_address: Some(api_adress),
+        private_api_address: Some(api_adress2),
         enable_blockchain_explorer: true,
         ..Default::default()
     };
 
     // Internal port -- for node-to-node interactions
-    let peer_adress = "0.0.0.0:2000".parse().unwrap();
+    let peer_adress = "0.0.0.0:2069".parse().unwrap();
+    let test_peer = "1.2.3.4:2069".parse().unwrap();
 
     // Complete node configuration
     let node_cfg = NodeConfig {
         listen_address: peer_adress,
-        peers: vec![],
+        peers: vec![test_peer],
         service_public_key,
         service_secret_key,
         consensus_public_key,
@@ -309,7 +368,6 @@ fn main() {
         mempool: Default::default(),
         services_configs: Default::default(),
     };
-
 
     // Final setup
     let mut node = Node::new(blockchain, node_cfg);
