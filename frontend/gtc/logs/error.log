@@ -1,0 +1,14 @@
+2017/08/28 15:54:50 [emerg] 31066#0: open() "./mime.types" failed (2: No such file or directory) in ./nginx.conf:18
+2017/08/28 15:56:16 [emerg] 31160#0: bind() to 0.0.0.0:80 failed (13: Permission denied)
+2017/08/28 15:56:29 [emerg] 31177#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2017/08/28 15:56:29 [emerg] 31177#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2017/08/28 15:56:29 [emerg] 31177#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2017/08/28 15:56:29 [emerg] 31177#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2017/08/28 15:56:29 [emerg] 31177#0: bind() to 0.0.0.0:8080 failed (48: Address already in use)
+2017/08/28 15:57:16 [error] 31228#0: *1 "./html/index.html" is not found (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET / HTTP/1.1", host: "localhost:8888"
+2017/08/28 15:58:35 [error] 31228#0: *2 "./html/index.html" is not found (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET / HTTP/1.1", host: "localhost:8888"
+2017/08/28 16:05:58 [error] 31757#0: *1 "./html/index.html" is not found (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET / HTTP/1.1", host: "localhost:8888"
+2017/08/28 16:05:58 [error] 31757#0: *1 open() "./html/favicon.ico" failed (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET /favicon.ico HTTP/1.1", host: "localhost:8888", referrer: "http://localhost:8888/"
+2017/08/28 16:06:33 [error] 31757#0: *1 "./html/index.html" is not found (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET / HTTP/1.1", host: "localhost:8888"
+2017/08/28 16:06:39 [error] 31757#0: *2 open() "./html/index.html" failed (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET /index.html HTTP/1.1", host: "localhost:8888"
+2017/08/28 16:17:23 [error] 32535#0: *2 open() "/Users/alexajax/Desktop/GoToCC/frontend/gtc/favicon.ico" failed (2: No such file or directory), client: 127.0.0.1, server: localhost, request: "GET /favicon.ico HTTP/1.1", host: "localhost:8888", referrer: "http://localhost:8888/"
