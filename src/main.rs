@@ -320,8 +320,8 @@ fn main() {
 
     
     // External port -- for api interactions
-    let api_adress = "0.0.0.0:8000".parse().unwrap();
-    let api_adress2 = "0.0.0.0:8001".parse().unwrap();
+    let api_adress = "0.0.0.0:7998".parse().unwrap();
+    let api_adress2 = "0.0.0.0:7999".parse().unwrap();
     
     let api_cfg = NodeApiConfig {
         public_api_address: Some(api_adress),
