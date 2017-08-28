@@ -1,3 +1,4 @@
+//КЛЮЧИ ПОМЕНЕНЫ МЕСТМИ!!!!!!!!!!!!!!!!
 $(document).ready(function() {
 	$('button#ExBut').click( function(event){
 
