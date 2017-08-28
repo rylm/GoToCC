@@ -1,6 +1,6 @@
 function sendData(data2){
   $.ajax({
-    url:"http://google.com",
+    url:"http://127.0.0.1:1488/api/services/cryptocurrency/v1/wallets/transaction",
     type:"POST",
     headers: {
 
@@ -10,6 +10,5 @@ function sendData(data2){
 
 
 
-console.log('send data: ok');
-
+	console.log('send data: ok');
 }
