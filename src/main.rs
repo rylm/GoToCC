@@ -11,7 +11,7 @@ use exonum::blockchain::{self, Blockchain, Service, GenesisConfig,
 use exonum::node::{Node, NodeConfig, NodeApiConfig, TransactionSend,
                    ApiSender, NodeChannel};
 use exonum::messages::{RawTransaction, FromRaw, Message};
-use exonum::storage::{Fork, MemoryDB, MapIndex};
+use exonum::storage::{Fork, MemoryDB, MapIndex, LevelDB, LevelDBOptions};
 use exonum::crypto::{PublicKey, Hash};
 use exonum::encoding::{self, Field};
 use exonum::api::{Api, ApiError};
@@ -291,8 +291,15 @@ fn main() {
     exonum::helpers::init_logger().unwrap();
     
 
+    let database_options = LevelDBOptions {
+        create_if_missing: true,
+        error_if_exists: false,
+        ..Default::default()
+    };
+
     // Current state database
-    let db = MemoryDB::new();
+    //TODO: ERROR HANDLING
+    let db = LevelDB::open("/Users/admin/Coding/Rust/blockchain/cryptocurrency/db/database", database_options).unwrap();
     
     let services: Vec<Box<Service>> = vec![
         Box::new(CurrencyService),
@@ -320,8 +327,8 @@ fn main() {
 
     
     // External port -- for api interactions
-    let api_adress = "0.0.0.0:8000".parse().unwrap();
-    let api_adress2 = "0.0.0.0:8001".parse().unwrap();
+    let api_adress = "0.0.0.0:1488".parse().unwrap();
+    let api_adress2 = "0.0.0.0:1489".parse().unwrap();
     
     let api_cfg = NodeApiConfig {
         public_api_address: Some(api_adress),
@@ -331,8 +338,8 @@ fn main() {
     };
 
     // Internal port -- for node-to-node interactions
-    let peer_adress = "0.0.0.0:2000".parse().unwrap();
-    let test_peer = "1.2.3.4:2000".parse().unwrap();
+    let peer_adress = "0.0.0.0:2069".parse().unwrap();
+    let test_peer = "1.2.3.4:2069".parse().unwrap();
 
     // Complete node configuration
     let node_cfg = NodeConfig {
