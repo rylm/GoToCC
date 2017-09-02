@@ -6,13 +6,16 @@ extern crate router;
 extern crate bodyparser;
 extern crate iron;
 
+use std::fs::File;
+use std::io::{stdin,stdout,Write, BufReader, BufRead};
+
 use exonum::blockchain::{self, Blockchain, Service, GenesisConfig, ConsensusConfig,
                          ValidatorKeys, Transaction, ApiContext};
 use exonum::node::{Node, NodeConfig, NodeApiConfig, TransactionSend,
                    ApiSender, NodeChannel};
 use exonum::messages::{RawTransaction, FromRaw, Message};
 use exonum::storage::{Fork, MapIndex, LevelDB, LevelDBOptions};
-use exonum::crypto::{PublicKey, Hash};
+use exonum::crypto::{PublicKey, SecretKey, Hash, HexValue};
 use exonum::encoding::{self, Field};
 use exonum::api::{Api, ApiError}; 
 use iron::prelude::*;
@@ -286,7 +289,6 @@ impl Service for CurrencyService {
 // --------------------------------------------------- //
 
 
-
 fn main() {
     exonum::helpers::init_logger().unwrap();
     
@@ -309,18 +311,73 @@ fn main() {
     let blockchain = Blockchain::new(Box::new(db), services);
 
 
-    // For debug purpose only hardcoded manual node init avaliable
+    //---------------------------------------
+   
+    // File with the pack of personal node keys (Two pairs)
+    println!("Enter node keyfile path:");
+    let mut node_keys_path = String::new();
+   
+    stdin().read_line(&mut node_keys_path).expect("Error, mah dude");
+
+    let n_k_p_len = node_keys_path.len();
+    node_keys_path.truncate(n_k_p_len-1);
+
+    //  File with keys of initial validator nodes
+
+    //TODO: This is so fuckin dirty
+    println!("Enter node validtor keys file path:");
+    let mut validator_keys_path = String::new();
+  
+    stdin().read_line(&mut validator_keys_path).expect("Error, mah dude");
     
-    let (consensus_public_key, consensus_secret_key) =
-    exonum::crypto::gen_keypair();
-    let (service_public_key, service_secret_key) =
-        exonum::crypto::gen_keypair();
+    let v_k_p_len = validator_keys_path.len();
+    validator_keys_path = validator_keys_path;
 
-    let validator_keys = ValidatorKeys {
-    consensus_key: consensus_public_key,
-    service_key: service_public_key,
-    };
+    validator_keys_path.truncate(v_k_p_len-1);
 
+    println!("\n..{}..\n", validator_keys_path);
+
+    let n_k = File::open(node_keys_path).expect("No such file1, mah dude");
+    let v_k = File::open(validator_keys_path).expect("No such file2, mah dude");
+
+
+    let node_keys = BufReader::new(&n_k);
+    let validator_keys = BufReader::new(&v_k);
+
+    //TODO: add classy FP implementation
+    let mut n_k_arr: Vec<String> = Vec::new();
+    for line in node_keys.lines() {
+        let l = line.unwrap();//.expect("Error, mah dude");
+        n_k_arr.push(l);
+    }
+
+    //TODO: add classy FP implementation
+    let mut v_k_arr: Vec<String> = Vec::new();
+    for line in validator_keys.lines() {
+        let l = line.unwrap();//.expect("Error, mah dude");
+        v_k_arr.push(l);
+    }
+
+    let mut i = 0;
+    let mut v_k: Vec<ValidatorKeys> = Vec::new();
+    while i <= 4 {
+        let cons = PublicKey::from_hex(&v_k_arr[i]).expect("Error, mah dude");
+        let serv =  PublicKey::from_hex(&v_k_arr[i+1]).expect("Error, mah dude");
+        v_k.push(ValidatorKeys{consensus_key: cons, service_key: serv});
+        i+=2;
+    }
+
+
+    //TODO : to dirty, my eyes hurt
+    let consensus_public_key = PublicKey::from_hex(&n_k_arr[0]).expect("Error, mah dude");
+
+    let consensus_secret_key = SecretKey::from_hex(&n_k_arr[1]).expect("Error, mah dude");
+
+    let service_public_key = PublicKey::from_hex(&n_k_arr[2]).expect("Error, mah dude");
+
+    let service_secret_key = SecretKey::from_hex(&n_k_arr[3]).expect("Error, mah dude");
+
+    //--------------------------------------
 
     let consensus_config = ConsensusConfig {
         txs_block_limit: 1,
@@ -328,7 +385,7 @@ fn main() {
     };
 
     // Root block of the blockchain
-    let genesis = GenesisConfig::new_with_consensus(consensus_config, vec![validator_keys].into_iter());
+    let genesis = GenesisConfig::new_with_consensus(consensus_config, v_k.into_iter());
 
     
     // External port -- for api interactions
