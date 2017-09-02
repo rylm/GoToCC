@@ -1,4 +1,4 @@
-console.log('fffffffgg');
+console.log('Popping 40s');
 $(document).ready(function() { // вся мaгия пoсле зaгрузки стрaницы
 	$('button#go').click( function(event){ // лoвим клик пo ссылки с id="go"
 		Cookies.set('cname',(event.currentTarget.getAttribute('cname')));

@@ -11,11 +11,13 @@ var url2 = 'http://localhost:1488'
 console.log(Cookies.get());
 $(document).ready(function() { // вся мaгия пoсле зaгрузки стрaницы
     $('button#newContract').click( function(event){
-        console.log('ffff');
-        var tmp=setup(Cookies.get(),$('#prCoast').val() ,$('#prName').val());
-        console.log(tmp);
-        if(tmp!=undefined){
-            console.log('zap');
+        console.log('Creating contact...');
+        var data=setup(Cookies.get(),$('#prCoast').val() ,$('#prName').val());
+        console.log(data);
+        if(data != undefined){
+            console.log("'data' variable seems valid!");
+        } else {
+            console.log("Oh, you fucked up somewhere(");
         }
       //эта штука шлёт запрос на создание контракта, ваш json это data
       sendData(data, url2);
