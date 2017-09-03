@@ -1,0 +1,14 @@
+{
+   "body":{
+      "reward":"100",
+      "task_info":"wverv",
+      "pub_key":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "signer_info":" ",
+      "vote_status":"0"
+   },
+   "network_id":0,
+   "protocol_version":0,
+   "service_id":1,
+   "message_id":0,
+   "signature":"37c6fc622f7600ee40203e4742061a544c2f0e9c622e5e96387d38a00f329cc9ec370ded34f2da86fd141d300c7af1574255a6f6483b2887a8d867d778bcd200"
+}
