@@ -12,6 +12,6 @@ $(document).ready(function() { // вся мaгия пoсле зaгрузки с�
             console.log("Oh, you fucked up somewhere(");
         }
 
-        sendData(data, url2);
+        sendData(JSON.stringify(data), url2);
     });
 });
