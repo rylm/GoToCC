@@ -92,7 +92,7 @@ message! {
     struct TxFullScholarship {
         const TYPE = SERVICE_ID;
         const ID = TX_GOTO_FULL_SCHOLARSHIP_ID;
-        const SIZE = 64;
+        const SIZE = 72;
 
         field reward:      u64         [00 => 08]
         field task_info:   &str        [08 => 16]
@@ -101,6 +101,7 @@ message! {
         field signer_info: &str        [48 => 56]
         
         field vote_status: u64         [56 => 64]
+        field aquire_status: u64       [64 => 72]
     }
 }
 
@@ -213,6 +214,13 @@ struct CryptocurrencyApi {
 }
 
 impl CryptocurrencyApi {
+
+    fn get_wallet(&self, pub_key: &PublicKey) -> Option<Wallet> {
+        let mut view = self.blockchain.fork();
+        let mut schema = CurrencySchema { view: &mut view };
+        schema.wallet(pub_key)
+    }
+
     fn get_cs_with_filter (&self, contract_filter: &Fn(&serde_json::Value)-> bool) -> Option<Vec<serde_json::Value>> {
         let view = self.blockchain.fork();
         let schema = Schema::new(view);
@@ -288,28 +296,78 @@ impl Api for CryptocurrencyApi {
             }
         };
 
-
+        
         fn initialised (tx: &serde_json::Value) -> bool {
                 let empty_key = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
                 if tx["pub_key"] == empty_key { true }
                 else  { false }
         }
-       
+
+        fn not_voted (tx: &serde_json::Value) -> bool {
+                if !initialised(tx) && tx["vote_status"] == "0" { true }
+                else { false }
+        }
+
+        // Contracts, avaliable for assigning
         let self_ = self.clone();
         let open_contracts = move |_: &mut Request| -> IronResult<Response> {
             match self_.get_cs_with_filter(&initialised) {
                 Some(contracts) => {
                     self_.ok_response(&serde_json::to_value(contracts).unwrap())
                 }
-                None =>  self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
+                None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
+            }
+        };
+           
+        // Done contracts, avaliavle for voting
+        let self_ = self.clone();
+        let done_contracts = move |_: &mut Request| -> IronResult<Response> {
+            match self_.get_cs_with_filter(&not_voted) {
+                Some(contracts) => {
+                    self_.ok_response(&serde_json::to_value(contracts).unwrap())
+                }
+                None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
             }
         };
 
-        
+
+        // Solutions, submitted by user 
+        let self_ = self.clone();
+        let submitted_contracts = move |req: &mut Request| -> IronResult<Response> {
+            let path = req.url.path();
+            let user_key = path.last().unwrap().clone();
+            if let Some(contracts) = self_.get_cs_with_filter( 
+                    &|tx: &serde_json::Value| {if tx["pub_key"] == user_key {true}
+                                              else {false} }) {
+                self_.ok_response(&serde_json::to_value(contracts).unwrap())
+            } else {
+                self_.not_found_response(&serde_json::to_value("No contracts submitted").unwrap())
+            }
+        };
+
+        // Wallet info by wallet key
+        let self_ = self.clone();
+        let wallet_info = move |req: &mut Request| -> IronResult<Response> {
+            let path = req.url.path();
+            let wallet_key = path.last().unwrap();
+            let public_key = PublicKey::from_hex(wallet_key).map_err(ApiError::FromHex)?;
+            if let Some(wallet) = self_.get_wallet(&public_key) {
+                self_.ok_response(&serde_json::to_value(wallet).unwrap())
+            } else {
+                self_.not_found_response(&serde_json::to_value("Wallet not found").unwrap())
+            }
+        };
+
+
         // Bind the transaction handler to a specific route.
         let route_post = "/v1/wallets/transaction";
         router.post(&route_post, tx_handler, "transaction");
+
+        router.get("/v1/wallet/:pub_key", wallet_info, "wallet_info");
+
+        router.get("v1/contracts/user/:pub_key", submitted_contracts, "contracts submitted by user");
         router.get("v1/contracts/open", open_contracts, "open contracts");
+        router.get("v1/contracts/done", done_contracts, "done contracts");
     }
 }
 
