@@ -298,14 +298,19 @@ impl Api for CryptocurrencyApi {
 
         
         fn initialised (tx: &serde_json::Value) -> bool {
-                let empty_key = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-                if tx["pub_key"] == empty_key { true }
-                else  { false }
+            let empty_key = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+            if tx["pub_key"] == empty_key { true }
+            else  { false }
         }
 
         fn not_voted (tx: &serde_json::Value) -> bool {
-                if !initialised(tx) && tx["vote_status"] == "0" { true }
-                else { false }
+            if !initialised(tx) && tx["vote_status"] == "0" { true }
+            else { false }
+        }
+
+        fn approved (tx: &serde_json::Value) -> bool {
+            if tx["vote_status"] == "1" {true}
+            else {false}
         }
 
         // Contracts, avaliable for assigning
@@ -358,6 +363,17 @@ impl Api for CryptocurrencyApi {
             }
         };
 
+        // Contracts signed by admin
+        let self_ = self.clone();
+        let admin_contracts = move |_: &mut Request| -> IronResult<Response> {
+            match self_.get_cs_with_filter(&approved) {
+                Some(contracts) => {
+                    self_.ok_response(&serde_json::to_value(contracts).unwrap())
+                }
+                None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
+            }
+        };
+
 
         // Bind the transaction handler to a specific route.
         let route_post = "/v1/wallets/transaction";
@@ -365,9 +381,10 @@ impl Api for CryptocurrencyApi {
 
         router.get("/v1/wallet/:pub_key", wallet_info, "wallet_info");
 
-        router.get("v1/contracts/user/:pub_key", submitted_contracts, "contracts submitted by user");
+        router.get("v1/contracts/users/sent_by_user/:pub_key", submitted_contracts, "contracts submitted by user");
         router.get("v1/contracts/open", open_contracts, "open contracts");
-        router.get("v1/contracts/done", done_contracts, "done contracts");
+        router.get("v1/contracts/users/done", done_contracts, "done contracts");
+        router.get("v1/contracts/admin/approved", admin_contracts, "contracts approved by admin");
     }
 }
 
