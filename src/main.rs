@@ -6,14 +6,15 @@ extern crate router;
 extern crate bodyparser;
 extern crate iron;
 
+use std::any::Any;
 use std::fs::File;
 use std::io::{stdin,stdout,Write, BufReader, BufRead};
 
-use exonum::blockchain::{self, Blockchain, Service, GenesisConfig, ConsensusConfig,
+use exonum::blockchain::{self, Blockchain, Service, Schema, GenesisConfig, ConsensusConfig,
                          ValidatorKeys, Transaction, ApiContext};
 use exonum::node::{Node, NodeConfig, NodeApiConfig, TransactionSend,
                    ApiSender, NodeChannel};
-use exonum::messages::{RawTransaction, FromRaw, Message};
+use exonum::messages::{RawTransaction, RawMessage, FromRaw, Message};
 use exonum::storage::{Fork, MapIndex, LevelDB, LevelDBOptions};
 use exonum::crypto::{PublicKey, SecretKey, Hash, HexValue};
 use exonum::encoding::{self, Field};
@@ -21,6 +22,7 @@ use exonum::api::{Api, ApiError};
 use iron::prelude::*;
 use iron::Handler;
 use router::Router;
+
 
 
 // Service identifier
@@ -153,6 +155,10 @@ impl Transaction for TxFullScholarship {
         }
         println!("Scholarship transaction passed");
     }
+
+    fn info (&self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap()
+    }
 }
 
 // ------------------------------------------------------- //
@@ -187,6 +193,10 @@ impl Transaction for TxCreateWallet {
             schema.wallets().put(self.pub_key(), wallet)
         }
     }
+
+    fn info (&self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap()
+    }
 }
 
 // ----------------------------------------------- //
@@ -199,6 +209,42 @@ impl Transaction for TxCreateWallet {
 #[derive(Clone)]
 struct CryptocurrencyApi {
     channel: ApiSender<NodeChannel>,
+    blockchain: Blockchain,
+}
+
+impl CryptocurrencyApi {
+    fn get_cs_with_filter (&self, contract_filter: &Fn(&serde_json::Value)-> bool) -> Option<Vec<serde_json::Value>> {
+        let view = self.blockchain.fork();
+        let schema = Schema::new(view);
+
+        let transactions = schema.transactions();
+
+        let all_cs: Vec<RawMessage> = transactions.values().collect();
+
+        // Unwrapping needed transactions -- TODO: change to map
+        let mut unwrapped_contracts : Vec<serde_json::Value> = Vec::new();
+        for tx in all_cs {
+            let tx = self.blockchain.tx_from_raw(tx).unwrap();
+            let info = tx.info();
+            match info.as_object() {
+                Some(obj) => {
+                    if obj["message_id"] == TX_GOTO_FULL_SCHOLARSHIP_ID {
+                        unwrapped_contracts.push(obj["body"].clone());
+                    }
+                },
+                None => {},
+            }
+        }
+
+        // Filtering 
+        let filtered_contracts : Vec<serde_json::Value> = unwrapped_contracts.into_iter().filter(contract_filter).collect();
+
+        if filtered_contracts.len() == 0 {
+            return None;
+        }
+
+        return Some(filtered_contracts);
+    }
 }
 
 #[serde(untagged)]
@@ -242,9 +288,28 @@ impl Api for CryptocurrencyApi {
             }
         };
 
+
+        fn initialised (tx: &serde_json::Value) -> bool {
+                let empty_key = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+                if tx["pub_key"] == empty_key { true }
+                else  { false }
+        }
+       
+        let self_ = self.clone();
+        let open_contracts = move |_: &mut Request| -> IronResult<Response> {
+            match self_.get_cs_with_filter(&initialised) {
+                Some(contracts) => {
+                    self_.ok_response(&serde_json::to_value(contracts).unwrap())
+                }
+                None =>  self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
+            }
+        };
+
+        
         // Bind the transaction handler to a specific route.
         let route_post = "/v1/wallets/transaction";
         router.post(&route_post, tx_handler, "transaction");
+        router.get("v1/contracts/open", open_contracts, "open contracts");
     }
 }
 
@@ -274,6 +339,7 @@ impl Service for CurrencyService {
         let mut router = Router::new();
         let api = CryptocurrencyApi {
             channel: ctx.node_channel().clone(),
+            blockchain: ctx.blockchain().clone(),
         };
         api.wire(&mut router);
         Some(Box::new(router))
@@ -359,11 +425,11 @@ fn main() {
     }
 
     let mut i = 0;
-    let mut v_k: Vec<ValidatorKeys> = Vec::new();
-    while i <= 4 {
+    let mut validator_keys: Vec<ValidatorKeys> = Vec::new();
+    while i <= 0 {////////////
         let cons = PublicKey::from_hex(&v_k_arr[i]).expect("Error, mah dude");
         let serv =  PublicKey::from_hex(&v_k_arr[i+1]).expect("Error, mah dude");
-        v_k.push(ValidatorKeys{consensus_key: cons, service_key: serv});
+        validator_keys.push(ValidatorKeys{consensus_key: cons, service_key: serv});
         i+=2;
     }
 
@@ -385,7 +451,7 @@ fn main() {
     };
 
     // Root block of the blockchain
-    let genesis = GenesisConfig::new_with_consensus(consensus_config, v_k.into_iter());
+    let genesis = GenesisConfig::new_with_consensus(consensus_config, validator_keys.into_iter());
 
     
     // External port -- for api interactions
