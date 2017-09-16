@@ -92,7 +92,7 @@ message! {
     struct TxFullScholarship {
         const TYPE = SERVICE_ID;
         const ID = TX_GOTO_FULL_SCHOLARSHIP_ID;
-        const SIZE = 72;
+        const SIZE = 104;
 
         field reward:      u64         [00 => 08]
         field task_info:   &str        [08 => 16]
@@ -101,8 +101,53 @@ message! {
         field signer_info: &str        [48 => 56]
         
         field vote_status: u64         [56 => 64]
-        field aquire_status: u64       [64 => 72]
+        field acquire_status: u64      [64 => 72]
+
+        field hash: &Hash              [72 => 104]
     }
+}
+
+impl TxFullScholarship {
+
+    // fn is_descendant_of (&self, contract: &TxFullScholarship) {
+    //     if self.reward    == contract.reward &&
+    //        self.task_info == contract.task_info {
+    //         true
+    //        }
+    //     else { false }
+    // }
+
+    // fn is_initial (&self) {
+    //     if self.reward == 0 &&
+    //        self.task_info == "_" {
+    //         false
+    //        }
+    //     if self.pub_key == PublicKey.zero() &&
+    //        self.signer_info    == "_"  &&
+    //        self.vote_status    == "0" &&
+    //        self.acquire_status ==  0  &&
+    //        self.hash           ==  0 {
+    //         true
+    //        }
+    // }
+
+
+    // fn verify_hash(&self, view: &mut Fork, hash: &Hash) {
+    //     let schema = Schema::new(view);
+
+    //     let transactions = schema.transactions();
+
+    //     if transactions.contains(hash) {
+    //         let initial_tx = transactions[hash];
+
+    //         let tx = self.blockchain.tx_from_raw(tx).unwrap();
+            
+    //         if self.is_descendant_of(initial_tx) {
+    //             true
+    //         }
+    //     }
+    //     false
+    // }
 }
 
 impl Transaction for TxFullScholarship {
@@ -139,13 +184,24 @@ impl Transaction for TxFullScholarship {
                                                      0xc5, 
                                                      0xc9, 
                                                      0xa1]);
-        self.verify_signature(self.pub_key()) || self.verify_signature(&admin_key)
-    }
+
+        let zero_key = PublicKey::zero();
+
+        let mut result = false;
+
+        if self.pub_key() == &zero_key || (self.vote_status() != 0 && self.acquire_status() == 0) {
+            result = self.verify_signature(&admin_key);
+        }
+        else {
+            result = self.verify_signature(self.pub_key())
+        }
+        result
+   }
 
     fn execute(&self, view: &mut Fork) {
-        if self.vote_status() == 1 {
-            
+        if self.acquire_status() == 1 {
             let mut schema = CurrencySchema { view };
+
             let usr_wallet = schema.wallet(self.pub_key()); 
             let amount = self.reward();
 
@@ -334,7 +390,6 @@ impl Api for CryptocurrencyApi {
                 None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
             }
         };
-
 
         // Solutions, submitted by user 
         let self_ = self.clone();
