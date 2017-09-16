@@ -1,7 +1,7 @@
 "use strict";
 
-let baseGetUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/';
-let postUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/wallets/transaction';
+const baseGetUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/';
+const postUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/wallets/transaction';
 
 function checkStorage() {
     return !(typeof Storage === typeof undefined);
@@ -11,7 +11,7 @@ function checkStatus(response) {
     if (response.status >= 200 && response.status < 300) {
         return response;
     } else {
-        let error = new Error(response.statusText);
+        const error = new Error(response.statusText);
         error.response = response;
         throw error;
     }
@@ -32,7 +32,7 @@ function findTxByHash(txs, hash) {
 }
 
 function genKeys() {
-    let tmp = Exonum.keyPair();
+    const tmp = Exonum.keyPair();
     localStorage.setItem('secretKey', tmp.secretKey);
     localStorage.setItem('publicKey', tmp.publicKey);
 
@@ -46,9 +46,9 @@ function importKeys(keyPair) {
 }
 
 function exportKeys() {
-    let secretKey = localStorage.getItem('secretKey');
-    let publicKey = localStorage.getItem('publicKey');
-    let keyPair = {secretKey: secretKey, publicKey: publicKey};
+    const secretKey = localStorage.getItem('secretKey');
+    const publicKey = localStorage.getItem('publicKey');
+    const keyPair = {secretKey: secretKey, publicKey: publicKey};
     console.log('Hey! Somebody exported your keys. It better were you!');
 
     return keyPair;
@@ -97,26 +97,26 @@ function sendTx(msg) {
 }
 
 function createWallet(keys, name) {
-    let msg = TxCreateWalletJSON(keys, name);
+    const msg = TxCreateWalletJSON(keys, name);
     sendTx(msg);
 }
 
 function addContract(keys, reward, task_info) {
-    let msg = setup(keys, reward, task_info);
+    const msg = setup(keys, reward, task_info);
     sendTx(msg);
 }
 
 function submitSolution(keys, signer_info, block) {
-    let msg = assign(keys, signer_info, block);
+    const msg = assign(keys, signer_info, block);
     sendTx(msg);
 }
 
 function voteForContract() {
-    let msg = vote(keys, vote_status, block);
+    const msg = vote(keys, vote_status, block);
     sendTx(msg);
 }
 
 function acquireContract(keys, acquire_status, block) {
-    let msg = acquire(keys, acquire_status, block);
+    const msg = acquire(keys, acquire_status, block);
     sendTx(msg);
 }
