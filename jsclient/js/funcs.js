@@ -54,23 +54,15 @@ function exportKeys() {
     return keyPair;
 }
 
-function getOpenScholarships() {
-    return fetch(baseGetUrl + 'contracts/open')
-            .then(checkStatus)
-            .then(parseJSON);
-}
+const mkGet = url => fetch(baseGetUrl + url)
+                      .then(checkStatus)
+                      .then(parseJSON);
 
-function getSubmittedSolutions() {
-    return fetch(baseGetUrl + 'contracts/users/done')
-            .then(checkStatus)
-            .then(parseJSON);
-}
+const getOpenScholarships = () => mkGet('contracts/open');
 
-function getApprovedSolutions() {
-    return fetch(baseGetUrl + 'contracts/admin/approved')
-            .then(checkStatus)
-            .then(parseJSON);
-}
+const getSubmittedSolutions = () => mkGet('contracts/users/done');
+
+const getApprovedSolutions = () => mkGet('contracts/admin/approved');
 
 function getUserInfo(publicKey) {
     fetch(baseGetUrl + 'wallet/' + publicKey)
