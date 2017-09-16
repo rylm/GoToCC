@@ -3,24 +3,38 @@ let postUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/wallets/tran
 
 function genKeys() {
 	let tmp = Exonum.keyPair();
-	Cookies.set('secretKey', tmp.secretKey);
-	Cookies.set('publicKey', tmp.publicKey);
+
+	if (typeof(Storage) !== "undefined") {
+		localStorage.setItem('secretKey', tmp.secretKey);
+		localStorage.setItem('publicKey', tmp.publicKey);
+	} else {
+		console.log('Sorry! No Web Storage support..');
+	}
+
 	console.log('Keys generated and saved!');
 }
 
 function importKeys(keyPair) {
-	Cookies.set('secretKey', keyPair.secretKey);
-	Cookies.set('publicKey', keyPair.publicKey);
+	if (typeof(Storage) !== "undefined") {
+		localStorage.setItem('secretKey', keyPair.secretKey);
+		localStorage.setItem('publicKey', keyPair.publicKey);
+	} else {
+		console.log('Sorry! No Web Storage support..');
+	}
 	console.log('Keys imported!')
 }
 
 function exportKeys() {
-	secretKey = Cookies.get('secretKey');
-	publicKey = Cookies.get('publicKey');
+	if (typeof(Storage) !== "undefined") {
+		secretKey = localStorage.getItem('secretKey');
+		publicKey = localStorage.getItem('publicKey');
+		let keyPair = {'secretKey': secretKey, 'publicKey': publicKey};
+		console.log('Hey! Somebody exported your keys. It better were you!');
 
-	let keyPair = {'secretKey': secretKey, 'publicKey': publicKey};
-	console.log('Hey! Somebody exported your keys. It better were you!')
-	return keyPair
+		return keyPair
+	} else {
+		console.log('Sorry! No Web Storage support..');
+	}
 }
 
 function getOpenScholarships(callback) {
@@ -48,7 +62,7 @@ function getApprovedSolutions(callback) {
 }
 
 function getUserInfo(publicKey, callback) {
-	$.get(baseGetUrl + 'wallet/:' + publicKey, function(data) {
+	$.get(baseGetUrl + 'wallet/' + publicKey, function(data) {
 		console.log('Info about this user (' + publicKey + '):');
 		console.log(data);
 		callback(data);
@@ -56,7 +70,7 @@ function getUserInfo(publicKey, callback) {
 }
 
 function getUserContracts(publicKey, callback) {
-	$.getJSON(baseGetUrl + 'contracts/users/sent_by_user/:' + publicKey, function(data) {
+	$.getJSON(baseGetUrl + 'contracts/users/sent_by_user/' + publicKey, function(data) {
 		console.log('Here are all contracts sent by this user (' + publicKey + '):');
 		console.log(data);
 		callback(data);
@@ -100,6 +114,3 @@ function voteForContract() {
 function acquireContract(keys, acquire_status, block) {
 	return;
 }
-
-
-
