@@ -1,116 +1,156 @@
-let baseGetUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/'
-let postUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/wallets/transaction'
+let baseGetUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/';
+let postUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/wallets/transaction';
+
+function checkStorage() {
+    "use strict";
+
+    return !(typeof Storage === typeof undefined);
+}
+
+function checkStatus(response) {
+    "use strict";
+
+    if (response.status >= 200 && response.status < 300) {
+        return response;
+    } else {
+        let error = new Error(response.statusText);
+        error.response = response;
+        throw error;
+    }
+}
+
+function parseJSON(response) {
+    "use strict";
+
+    return response.json();
+}
+
+function parseText(response) {
+    "use strict";
+
+    return response.text();
+}
+
+function findTxByHash(txs, hash) {
+    "use strict";
+
+    return txs.filter(function(x) {
+        return x.signature === hash;
+    })[0];
+}
 
 function genKeys() {
-	let tmp = Exonum.keyPair();
+    "use strict";
 
-	if (typeof(Storage) !== "undefined") {
-		localStorage.setItem('secretKey', tmp.secretKey);
-		localStorage.setItem('publicKey', tmp.publicKey);
-	} else {
-		console.log('Sorry! No Web Storage support..');
-	}
+    let tmp = Exonum.keyPair();
+    localStorage.setItem('secretKey', tmp.secretKey);
+    localStorage.setItem('publicKey', tmp.publicKey);
 
-	console.log('Keys generated and saved!');
+    console.log('Keys generated and saved!');
 }
 
 function importKeys(keyPair) {
-	if (typeof(Storage) !== "undefined") {
-		localStorage.setItem('secretKey', keyPair.secretKey);
-		localStorage.setItem('publicKey', keyPair.publicKey);
-	} else {
-		console.log('Sorry! No Web Storage support..');
-	}
-	console.log('Keys imported!')
+    "use strict";
+
+    localStorage.setItem('secretKey', keyPair.secretKey);
+    localStorage.setItem('publicKey', keyPair.publicKey);
+    console.log('Keys imported!');
 }
 
 function exportKeys() {
-	if (typeof(Storage) !== "undefined") {
-		secretKey = localStorage.getItem('secretKey');
-		publicKey = localStorage.getItem('publicKey');
-		let keyPair = {'secretKey': secretKey, 'publicKey': publicKey};
-		console.log('Hey! Somebody exported your keys. It better were you!');
+    "use strict";
 
-		return keyPair
-	} else {
-		console.log('Sorry! No Web Storage support..');
-	}
+    let secretKey = localStorage.getItem('secretKey');
+    let publicKey = localStorage.getItem('publicKey');
+    let keyPair = {secretKey: secretKey, publicKey: publicKey};
+    console.log('Hey! Somebody exported your keys. It better were you!');
+
+    return keyPair;
 }
 
-function getOpenScholarships(callback) {
-	$.getJSON(baseGetUrl + 'contracts/open', function(data) {
-		console.log('Here are your contracts:');
-		console.log(data);
-		callback(data);
-	});
+function getOpenScholarships() {
+    "use strict";
+
+    return fetch(baseGetUrl + 'contracts/open')
+            .then(checkStatus)
+            .then(parseJSON);
 }
 
-function getSubmittedSolutions(callback) {
-	$.getJSON(baseGetUrl + 'contracts/users/done', function(data) {
-		console.log('Here are all submitted, yet still unreviewed contracts:');
-		console.log(data);
-		callback(data);
-	});
+function getSubmittedSolutions() {
+    "use strict";
+
+    return fetch(baseGetUrl + 'contracts/users/done')
+            .then(checkStatus)
+            .then(parseJSON);
 }
 
-function getApprovedSolutions(callback) {
-	$.getJSON(baseGetUrl + 'contracts/admin/approved', function(data) {
-		console.log('Here are all approved contracts:');
-		console.log(data);
-		callback(data);
-	});
+function getApprovedSolutions() {
+    "use strict";
+
+    return fetch(baseGetUrl + 'contracts/admin/approved')
+            .then(checkStatus)
+            .then(parseJSON);
 }
 
-function getUserInfo(publicKey, callback) {
-	$.get(baseGetUrl + 'wallet/' + publicKey, function(data) {
-		console.log('Info about this user (' + publicKey + '):');
-		console.log(data);
-		callback(data);
-	});
+function getUserInfo(publicKey) {
+    "use strict";
+
+    fetch(baseGetUrl + 'wallet/' + publicKey)
+            .then(checkStatus)
+            .then(parseText);
 }
 
-function getUserContracts(publicKey, callback) {
-	$.getJSON(baseGetUrl + 'contracts/users/sent_by_user/' + publicKey, function(data) {
-		console.log('Here are all contracts sent by this user (' + publicKey + '):');
-		console.log(data);
-		callback(data);
-	});
+function getUserContracts(publicKey) {
+    "use strict";
+
+    return fetch(baseGetUrl + 'contracts/users/sent_by_user/' + publicKey)
+            .then(checkStatus)
+            .then(parseJSON);
+}
+
+function sendTx(msg) {
+    if (typeof msg !== typeof undefined) {
+        fetch(postUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(msg)
+        });
+    }
 }
 
 function createWallet(keys, name) {
-	let msg = TxCreateWalletJSON(keys, name);
+    "use strict";
 
-	if (typeof msg !== 'undefined') {
-		$.ajax({
-		    url: postUrl,
-		    type: "POST",
-		    data: JSON.stringify(msg),
-		    dataType: "json"
-		});
-	}
+    let msg = TxCreateWalletJSON(keys, name);
+    sendTx(msg);
 }
 
 function addContract(keys, reward, task_info) {
-	let msg = setup(keys, reward, task_info);
+    "use strict";
 
-	if (typeof msg !== 'undefined') {
-		$.ajax({
-		    url: postUrl,
-		    type: "POST",
-		    data: JSON.stringify(msg),
-		    dataType: "json"
-		});
-	}
+    let msg = setup(keys, reward, task_info);
+    sendTx(msg);
 }
 
 function submitSolution(keys, signer_info, block) {
-	return;
+    "use strict";
+
+    let msg = assign(keys, signer_info, block);
+    sendTx(msg);
 }
 
 function voteForContract() {
-	return;
+    "use strict";
+
+    let msg = vote(keys, vote_status, block);
+    sendTx(msg);
 }
 
 function acquireContract(keys, acquire_status, block) {
-	return;
+    "use strict";
+
+    let msg = acquire(keys, acquire_status, block);
+    sendTx(msg);
 }
