@@ -34,8 +34,25 @@ const TX_GOTO_FULL_SCHOLARSHIP_ID: u16 = 0;
 // Identifier for wallet creation transaction type
 const TX_CREATE_WALLET_ID: u16 = 1;
 
+
+const TX_CREATE_TASK_ID: u16 = 69;
+const TX_CREATE_SOLUTION_ID: u16 = 70;
+
+const TX_ADMIN_EXAMINE_SOLUTION_ID: u16 = 71;
+const TX_AUTHOR_EXAMINE_SOLUTION_ID: u16 = 72;
+
+
 // Starting balance of a newly created wallet
 const INIT_BALANCE: u64 = 100;
+
+
+const CT_ADMIN_ACCEPTANCE:       u8 = 1;
+const CT_ADMIN_REJECTION:        u8 = 2;
+const CT_ADMIN_NOT_VOTED:        u8 = 0;
+
+const CT_AUTHOR_ACCEPTANCE:       u8 = 1;
+const CT_AUTHOR_REJECTION:        u8 = 2;
+const CT_AUTHOR_NOT_VOTED:        u8 = 0;
 
 // -------- Currency Schema init -------- //
 
@@ -50,8 +67,26 @@ impl<'a> CurrencySchema<'a> {
         MapIndex::new(prefix, self.view)
     }
 
-    pub fn  wallet (&mut self, pub_key: &PublicKey) -> Option<Wallet> {
+    pub fn wallet (&mut self, pub_key: &PublicKey) -> Option<Wallet> {
         self.wallets().get(pub_key)
+    }
+
+    pub fn tasks(&mut self) -> MapIndex<&mut Fork, Hash, ScholarshipTask> {
+        let prefix = blockchain::gen_prefix(SERVICE_ID, 1, &());
+        MapIndex::new(prefix, self.view)
+    }
+
+    pub fn  task (&mut self, hash: &Hash) -> Option<ScholarshipTask> {
+        self.tasks().get(hash)
+    }
+
+    pub fn solutions(&mut self) -> MapIndex<&mut Fork, Hash, ScholarshipSolution> {
+        let prefix = blockchain::gen_prefix(SERVICE_ID, 2, &());
+        MapIndex::new(prefix, self.view)
+    }
+
+    pub fn solution (&mut self, hash: &Hash) -> Option<ScholarshipSolution> {
+        self.solutions().get(hash)
     }
 }
 
@@ -85,72 +120,259 @@ impl Wallet {
 // ----------------------------------- //
 
 
+// -------- ScholarshipTask struct init -------- //
 
-// -------- Scholarship SC transaction init -------- //
+encoding_struct! {
+    struct ScholarshipTask {
+        const SIZE = 25;
 
-message! {
-    struct TxFullScholarship {
-        const TYPE = SERVICE_ID;
-        const ID = TX_GOTO_FULL_SCHOLARSHIP_ID;
-        const SIZE = 104;
-
-        field reward:      u64         [00 => 08]
-        field task_info:   &str        [08 => 16]
-        
-        field pub_key:     &PublicKey  [16 => 48]
-        field signer_info: &str        [48 => 56]
-        
-        field vote_status: u64         [56 => 64]
-        field acquire_status: u64      [64 => 72]
-
-        field hash: &Hash              [72 => 104]
+        field name:    &str [00 => 08]
+        field desc:    &str [08 => 16]
+        field reward:  u64  [16 => 24]
+        field is_open: bool [24 => 25]
     }
 }
 
-impl TxFullScholarship {
+impl ScholarshipTask {
+    pub fn close (&mut self) {
+        self.is_open == false;
+    }
 
-    // fn is_descendant_of (&self, contract: &TxFullScholarship) {
-    //     if self.reward    == contract.reward &&
-    //        self.task_info == contract.task_info {
-    //         true
-    //        }
-    //     else { false }
-    // }
+    pub fn create(name: &str, desc: &str, reward: u64) -> ScholarshipTask {
+        ScholarshipTask::new(name, desc, reward, true)
+    }
 
-    // fn is_initial (&self) {
-    //     if self.reward == 0 &&
-    //        self.task_info == "_" {
-    //         false
-    //        }
-    //     if self.pub_key == PublicKey.zero() &&
-    //        self.signer_info    == "_"  &&
-    //        self.vote_status    == "0" &&
-    //        self.acquire_status ==  0  &&
-    //        self.hash           ==  0 {
-    //         true
-    //        }
-    // }
-
-
-    // fn verify_hash(&self, view: &mut Fork, hash: &Hash) {
-    //     let schema = Schema::new(view);
-
-    //     let transactions = schema.transactions();
-
-    //     if transactions.contains(hash) {
-    //         let initial_tx = transactions[hash];
-
-    //         let tx = self.blockchain.tx_from_raw(tx).unwrap();
-            
-    //         if self.is_descendant_of(initial_tx) {
-    //             true
-    //         }
-    //     }
-    //     false
-    // }
 }
 
-impl Transaction for TxFullScholarship {
+// ----------------------------------- //
+
+// ----------------------------------- //
+
+
+// -------- ScholarshipSolution struct init -------- //
+
+encoding_struct! {
+    struct ScholarshipSolution {
+        const SIZE = 74;
+
+        field task_hash:         &Hash      [00 => 32]
+        field author:            &PublicKey [32 => 64]
+        field url:               &str       [64 => 72]
+        field admin_acceptance:  u8         [72 => 73]
+        field author_acceptance: u8         [73 => 74]
+    }
+}
+
+impl ScholarshipSolution {
+
+    pub fn create(hash: &Hash, author: &PublicKey, url: &str) -> ScholarshipSolution {
+        ScholarshipSolution::new(hash, author, url, CT_ADMIN_NOT_VOTED, CT_AUTHOR_NOT_VOTED)
+    }
+
+    pub fn admin_accept (&self) {
+        Field::write(&CT_ADMIN_ACCEPTANCE, &mut self.raw, 72, 73);
+    }
+
+
+    pub fn admin_reject (&self) {
+        Field::write(&CT_ADMIN_REJECTION, &mut self.raw, 72, 73);
+    }
+
+    pub fn author_accept (&self) {
+        Field::write(&CT_AUTHOR_ACCEPTANCE, &mut self.raw, 73, 74);
+    }
+
+    pub fn author_reject (&self) {
+        Field::write(&CT_AUTHOR_REJECTION, &mut self.raw, 73, 74);
+    }
+
+}
+
+// ----------------------------------- //
+
+
+
+// -------- TxCreateTask --------------------------- //
+
+message! {
+    struct TxCreateTask {
+        const TYPE = SERVICE_ID;
+        const ID = TX_CREATE_TASK_ID;
+        const SIZE = 24;
+
+        field name:   &str [00 => 08]
+        field desc:   &str [08 => 16]
+        field reward: u64  [16 => 24]
+    }
+}
+
+impl Transaction for TxCreateTask {
+    fn verify(&self) -> bool {
+        let admin_key: PublicKey = PublicKey::new(  [0x02,
+                                                     0xb9,
+                                                     0xc6, 
+                                                     0x56, 
+                                                     0x13, 
+                                                     0x22, 
+                                                     0xf6, 
+                                                     0x8d, 
+                                                     0x2c, 
+                                                     0xf9, 
+                                                     0x73, 
+                                                     0xe8, 
+                                                     0xd5, 
+                                                     0x44, 
+                                                     0xd9, 
+                                                     0x17, 
+                                                     0x16, 
+                                                     0xbf, 
+                                                     0x0b, 
+                                                     0x04,
+                                                     0x87, 
+                                                     0x49, 
+                                                     0x14, 
+                                                     0xf3, 
+                                                     0x1d,
+                                                     0xcd, 
+                                                     0xe6, 
+                                                     0xde, 
+                                                     0x99, 
+                                                     0xc5, 
+                                                     0xc9, 
+                                                     0xa1]);
+        self.verify_signature(&admin_key)
+    }
+
+    fn execute(&self, view: &mut Fork) {
+        let mut schema = CurrencySchema { view };
+        
+        let task = ScholarshipTask::create(self.name(), self.desc(), self.reward());
+
+        let hash = self.hash();
+
+        println!("Create the task: {:?}", task);
+        schema.tasks().put(&hash, task)
+    }
+}
+
+// ------------------------------------------------- //
+
+// -------- TxCloseTask --------------------------- //
+
+message! {
+    struct TxCloseTask {
+        const TYPE = SERVICE_ID;
+        const ID = TX_CREATE_TASK_ID;
+        const SIZE = 32;
+
+        field task_hash:   &Hash [00 => 32]
+    }
+}
+
+impl Transaction for TxCloseTask {
+    fn verify(&self) -> bool {
+        let admin_key: PublicKey = PublicKey::new(  [0x02,
+                                                     0xb9,
+                                                     0xc6, 
+                                                     0x56, 
+                                                     0x13, 
+                                                     0x22, 
+                                                     0xf6, 
+                                                     0x8d, 
+                                                     0x2c, 
+                                                     0xf9, 
+                                                     0x73, 
+                                                     0xe8, 
+                                                     0xd5, 
+                                                     0x44, 
+                                                     0xd9, 
+                                                     0x17, 
+                                                     0x16, 
+                                                     0xbf, 
+                                                     0x0b, 
+                                                     0x04,
+                                                     0x87, 
+                                                     0x49, 
+                                                     0x14, 
+                                                     0xf3, 
+                                                     0x1d,
+                                                     0xcd, 
+                                                     0xe6, 
+                                                     0xde, 
+                                                     0x99, 
+                                                     0xc5, 
+                                                     0xc9, 
+                                                     0xa1]);
+        self.verify_signature(&admin_key)
+    }
+
+    fn execute(&self, view: &mut Fork) {
+        let mut schema = CurrencySchema { view };
+        
+        let task = schema.task(self.task_hash());
+        
+        if let Some(mut task) = task {  
+            task.close();  
+            println!("Task closed: {:?}", task);
+            
+            let mut tasks = schema.tasks();
+            tasks.put(self.task_hash(), task);
+        }
+    }
+}
+
+// ------------------------------------------------- //
+
+// -------- TxCreateSolution --------------------------- //
+
+message! {
+    struct TxCreateSolution {
+        const TYPE = SERVICE_ID;
+        const ID = TX_CREATE_SOLUTION_ID;
+        const SIZE = 72;
+
+        field task_hash: &Hash      [00 => 32]
+        field author:    &PublicKey [32 => 64]
+        field url:       &str       [64 => 72]
+    }
+}
+
+impl Transaction for TxCreateSolution {
+    fn verify(&self) -> bool {
+        self.verify_signature(self.author())
+    }
+
+    fn execute(&self, view: &mut Fork) {
+        let mut schema = CurrencySchema { view };
+        let solutions = schema.solutions();
+
+        let solution = ScholarshipSolution::create(self.task_hash(), self.author(), self.url());
+
+        let hash = self.hash();
+        
+        println!("Solution created: {:?}", solution);
+
+        solutions.put(&hash, solution);
+    } 
+
+}
+
+// ------------------------------------------------- //
+
+// -------- TxAdminExamineSolution --------------------------- //
+
+message! {
+    struct TxAdminExamineSolution {
+        const TYPE = SERVICE_ID;
+        const ID = TX_ADMIN_EXAMINE_SOLUTION_ID;
+        const SIZE = 33;
+
+        field solution_hash:    &Hash [00 => 32]
+        field admin_acceptance: u8    [32 => 33]      
+    }
+}
+
+impl Transaction for TxAdminExamineSolution {
     fn verify(&self) -> bool {
         let admin_key: PublicKey = PublicKey::new(  [0x02,
                                                      0xb9,
@@ -185,41 +407,92 @@ impl Transaction for TxFullScholarship {
                                                      0xc9, 
                                                      0xa1]);
 
-        let zero_key = PublicKey::zero();
+        if self.admin_acceptance() != CT_ADMIN_ACCEPTANCE && 
+           self.admin_acceptance() != CT_ADMIN_REJECTION {
+            return false
+           }
 
-        let mut result = false;
-
-        if self.pub_key() == &zero_key || (self.vote_status() != 0 && self.acquire_status() == 0) {
-            result = self.verify_signature(&admin_key);
-        }
-        else {
-            result = self.verify_signature(self.pub_key())
-        }
-        result
-   }
-
-    fn execute(&self, view: &mut Fork) {
-        if self.acquire_status() == 1 {
-            let mut schema = CurrencySchema { view };
-
-            let usr_wallet = schema.wallet(self.pub_key()); 
-            let amount = self.reward();
-
-            if let Some(mut usr_wallet) = usr_wallet {
-                usr_wallet.increase(amount);
-                schema.wallets().put(self.pub_key(), usr_wallet);
-            }
-        }
-        println!("Scholarship transaction passed");
+        self.verify_signature(&admin_key)
     }
 
-    fn info (&self) -> serde_json::Value {
-        serde_json::to_value(self).unwrap()
+    fn execute(&self, view: &mut Fork) {
+        let mut schema = CurrencySchema { view };
+        
+        let solution = schema.solution(self.solution_hash());
+        
+        if let Some(mut solution) = solution {  
+            match self.admin_acceptance() {
+                CT_ADMIN_ACCEPTANCE => { 
+                                            solution.admin_accept();
+                                            println!("Solution accepted: {:?}", solution);
+                                       },
+                CT_ADMIN_REJECTION  => { 
+                                            solution.admin_reject();
+                                            println!("Solution rejected: {:?}", solution);
+                                       },
+                _ => {println!("Unknown acceptance id");}
+             } 
+    
+            
+            let mut solutions = schema.solutions();
+            solutions.put(self.solution_hash(), solution);
+        }
     }
 }
 
-// ------------------------------------------------------- //
+// ------------------------------------------------- //
 
+// -------- TxAuthorExamineSolution --------------------------- //
+
+message! {
+    struct TxAuthorExamineSolution {
+        const TYPE = SERVICE_ID;
+        const ID = TX_AUTHOR_EXAMINE_SOLUTION_ID;
+        const SIZE = 33;
+
+        field solution_hash:     &Hash [00 => 32]
+        field author_acceptance: u8    [32 => 33]      
+    }
+}
+
+impl Transaction for TxAuthorExamineSolution {
+     fn verify(&self) -> bool {
+        if self.author_acceptance() != CT_AUTHOR_ACCEPTANCE && 
+           self.author_acceptance() != CT_AUTHOR_REJECTION {
+            return false
+           }
+
+        self.verify_signature(self.author())
+    }
+
+    fn execute(&self, view: &mut Fork) {
+        let mut schema = CurrencySchema { view };
+        
+        let solution = schema.solution(self.solution_hash());
+        
+        if let Some(mut solution) = solution { 
+            if solution.admin_acceptance() == CT_ADMIN_ACCEPTANCE {
+                match self.author_acceptance() {
+                    CT_AUTHOR_ACCEPTANCE => { 
+                                                solution.author_accept();
+                                                println!("Solution accepted: {:?}", solution);
+                                           },
+                    CT_AUTHOR_REJECTION  => { 
+                                                solution.author_reject();
+                                                println!("Solution rejected: {:?}", solution);
+                                           },
+                    _ => {println!("Unknown acceptance id");}
+                 } 
+        
+                
+                let mut solutions = schema.solutions();
+                solutions.put(self.solution_hash(), solution);
+            }
+        }
+    }
+}
+
+// ------------------------------------------------- //
 
 
 // -------- Wallet registration transaction -------- //

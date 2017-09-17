@@ -3,6 +3,8 @@
 const baseGetUrl = 'http://127.0.0.1:8888/api/services/cryptocurrency/v1/';
 const postUrl = 'http://127.0.0.1:8888/api/services/cryptocurrency/v1/wallets/transaction';
 
+const postUrl = 'http://127.0.0.1:8888/api/services/cryptocurrency/v1/wallets/transaction';
+
 function checkStorage() {
     return !(typeof Storage === typeof undefined);
 }
