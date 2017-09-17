@@ -448,10 +448,11 @@ message! {
     struct TxAuthorExamineSolution {
         const TYPE = SERVICE_ID;
         const ID = TX_AUTHOR_EXAMINE_SOLUTION_ID;
-        const SIZE = 33;
+        const SIZE = 65;
 
-        field solution_hash:     &Hash [00 => 32]
-        field author_acceptance: u8    [32 => 33]      
+        field pub_key:           &PublicKey [00 => 32]
+        field solution_hash:     &Hash      [32 => 64]
+        field author_acceptance: u8         [64 => 65]      
     }
 }
 
@@ -462,7 +463,7 @@ impl Transaction for TxAuthorExamineSolution {
             return false
            }
 
-        self.verify_signature(self.author())
+        self.verify_signature(self.pub_key())
     }
 
     fn execute(&self, view: &mut Fork) {
@@ -471,23 +472,32 @@ impl Transaction for TxAuthorExamineSolution {
         let solution = schema.solution(self.solution_hash());
         
         if let Some(mut solution) = solution { 
-            if solution.admin_acceptance() == CT_ADMIN_ACCEPTANCE {
-                match self.author_acceptance() {
-                    CT_AUTHOR_ACCEPTANCE => { 
-                                                solution.author_accept();
-                                                println!("Solution accepted: {:?}", solution);
-                                           },
-                    CT_AUTHOR_REJECTION  => { 
-                                                solution.author_reject();
-                                                println!("Solution rejected: {:?}", solution);
-                                           },
-                    _ => {println!("Unknown acceptance id");}
-                 } 
-        
-                
-                let mut solutions = schema.solutions();
-                solutions.put(self.solution_hash(), solution);
+           
+            if self.verify_signature(solution.author()) {
+
+                if solution.admin_acceptance() == CT_ADMIN_ACCEPTANCE {
+                    match self.author_acceptance() {
+                        CT_AUTHOR_ACCEPTANCE => { 
+                                                    solution.author_accept();
+                                                    println!("Solution accepted: {:?}", solution);
+                                               },
+                        CT_AUTHOR_REJECTION  => { 
+                                                    solution.author_reject();
+                                                    println!("Solution rejected: {:?}", solution);
+                                               },
+                        _ => {println!("Unknown acceptance id");}
+                     } 
+            
+                    
+                    let mut solutions = schema.solutions();
+                    solutions.put(self.solution_hash(), solution);
+                }
+
             }
+            else {
+                println!("TxAuthorExamineSolution Author key differs from tx initiator");
+            }
+
         }
     }
 }
