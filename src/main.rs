@@ -1,4 +1,3 @@
-extern crate serde;
 extern crate serde_json;
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate exonum;
@@ -6,9 +5,8 @@ extern crate router;
 extern crate bodyparser;
 extern crate iron;
 
-use std::any::Any;
 use std::fs::File;
-use std::io::{stdin,stdout,Write, BufReader, BufRead};
+use std::io::{stdin, BufReader, BufRead};
 
 use exonum::blockchain::{self, Blockchain, Service, Schema, GenesisConfig, ConsensusConfig,
                          ValidatorKeys, Transaction, ApiContext};
@@ -36,10 +34,11 @@ const TX_CREATE_WALLET_ID: u16 = 1;
 
 
 const TX_CREATE_TASK_ID: u16 = 69;
-const TX_CREATE_SOLUTION_ID: u16 = 70;
+const TX_CLOSE_TASK_ID: u16 = 70;
 
-const TX_ADMIN_EXAMINE_SOLUTION_ID: u16 = 71;
-const TX_AUTHOR_EXAMINE_SOLUTION_ID: u16 = 72;
+const TX_CREATE_SOLUTION_ID: u16 = 71;
+const TX_ADMIN_EXAMINE_SOLUTION_ID: u16 = 72;
+const TX_ACCEPT_SCHOLARSHIP_ID: u16 = 73;
 
 
 // Starting balance of a newly created wallet
@@ -135,7 +134,8 @@ encoding_struct! {
 
 impl ScholarshipTask {
     pub fn close (&mut self) {
-        self.is_open == false;
+        let is_open = false;
+        Field::write(&is_open, &mut self.raw, 24, 25);
     }
 
     pub fn create(name: &str, desc: &str, reward: u64) -> ScholarshipTask {
@@ -169,20 +169,20 @@ impl ScholarshipSolution {
         ScholarshipSolution::new(hash, author, url, CT_ADMIN_NOT_VOTED, CT_AUTHOR_NOT_VOTED)
     }
 
-    pub fn admin_accept (&self) {
+    pub fn admin_accept (&mut self) {
         Field::write(&CT_ADMIN_ACCEPTANCE, &mut self.raw, 72, 73);
     }
 
 
-    pub fn admin_reject (&self) {
+    pub fn admin_reject (&mut self) {
         Field::write(&CT_ADMIN_REJECTION, &mut self.raw, 72, 73);
     }
 
-    pub fn author_accept (&self) {
+    pub fn author_accept (&mut self) {
         Field::write(&CT_AUTHOR_ACCEPTANCE, &mut self.raw, 73, 74);
     }
 
-    pub fn author_reject (&self) {
+    pub fn author_reject (&mut self) {
         Field::write(&CT_AUTHOR_REJECTION, &mut self.raw, 73, 74);
     }
 
@@ -262,7 +262,7 @@ impl Transaction for TxCreateTask {
 message! {
     struct TxCloseTask {
         const TYPE = SERVICE_ID;
-        const ID = TX_CREATE_TASK_ID;
+        const ID = TX_CLOSE_TASK_ID;
         const SIZE = 32;
 
         field task_hash:   &Hash [00 => 32]
@@ -323,7 +323,7 @@ impl Transaction for TxCloseTask {
 
 // ------------------------------------------------- //
 
-// -------- TxCreateSolution --------------------------- //
+// ------------ TxCreateSolution ------------------- //
 
 message! {
     struct TxCreateSolution {
@@ -344,7 +344,6 @@ impl Transaction for TxCreateSolution {
 
     fn execute(&self, view: &mut Fork) {
         let mut schema = CurrencySchema { view };
-        let solutions = schema.solutions();
 
         let solution = ScholarshipSolution::create(self.task_hash(), self.author(), self.url());
 
@@ -352,7 +351,7 @@ impl Transaction for TxCreateSolution {
         
         println!("Solution created: {:?}", solution);
 
-        solutions.put(&hash, solution);
+        schema.solutions().put(&hash, solution);
     } 
 
 }
@@ -445,10 +444,12 @@ impl Transaction for TxAdminExamineSolution {
 // -------- TxAuthorExamineSolution --------------------------- //
 
 message! {
-    struct TxAuthorExamineSolution {
+    struct TxAcceptScholarship {
         const TYPE = SERVICE_ID;
-        const ID = TX_AUTHOR_EXAMINE_SOLUTION_ID;
+        const ID = TX_ACCEPT_SCHOLARSHIP_ID;
         const SIZE = 65;
+
+
 
         field pub_key:           &PublicKey [00 => 32]
         field solution_hash:     &Hash      [32 => 64]
@@ -456,7 +457,7 @@ message! {
     }
 }
 
-impl Transaction for TxAuthorExamineSolution {
+impl Transaction for TxAcceptScholarship {
      fn verify(&self) -> bool {
         if self.author_acceptance() != CT_AUTHOR_ACCEPTANCE && 
            self.author_acceptance() != CT_AUTHOR_REJECTION {
@@ -495,7 +496,7 @@ impl Transaction for TxAuthorExamineSolution {
 
             }
             else {
-                println!("TxAuthorExamineSolution Author key differs from tx initiator");
+                println!("TxAcceptScholarship Author key differs from tx initiator");
             }
 
         }
@@ -598,14 +599,22 @@ impl CryptocurrencyApi {
 #[derive(Clone, Serialize, Deserialize)]
 enum TransactionRequest {
     CreateWallet(TxCreateWallet),
-    FullScholarship(TxFullScholarship),
+    CreateTask(TxCreateTask),
+    CloseTask(TxCloseTask),
+    CreateSolution(TxCreateSolution),
+    AdminExamineSoluton(TxAdminExamineSolution),
+    AcceptScholarship(TxAcceptScholarship),
 }
 
 impl Into<Box<Transaction>> for TransactionRequest {
     fn into(self) -> Box<Transaction> {
         match self {
-            TransactionRequest::CreateWallet(trans) => Box::new(trans),
-            TransactionRequest::FullScholarship(trans) => Box::new(trans),
+            TransactionRequest::CreateWallet(trans)        => Box::new(trans),
+            TransactionRequest::CreateTask(trans)          => Box::new(trans), 
+            TransactionRequest::CloseTask(trans)           => Box::new(trans),
+            TransactionRequest::CreateSolution(trans)      => Box::new(trans),
+            TransactionRequest::AdminExamineSoluton(trans) => Box::new(trans),
+            TransactionRequest::AcceptScholarship(trans)   => Box::new(trans),
         }
     }
 }
@@ -737,8 +746,12 @@ impl Service for CurrencyService {
         -> Result<Box<Transaction>, encoding::Error> {
 
         let trans: Box<Transaction> = match raw.message_type() {
-            TX_GOTO_FULL_SCHOLARSHIP_ID => Box::new(TxFullScholarship::from_raw(raw)?),
-            TX_CREATE_WALLET_ID => Box::new(TxCreateWallet::from_raw(raw)?),
+            TX_CREATE_WALLET_ID          => Box::new(TxCreateWallet::from_raw(raw)?),
+            TX_CREATE_TASK_ID            => Box::new(TxCreateTask::from_raw(raw)?),
+            TX_CLOSE_TASK_ID             => Box::new(TxCloseTask::from_raw(raw)?),
+            TX_CREATE_SOLUTION_ID        => Box::new(TxCreateSolution::from_raw(raw)?),
+            TX_ADMIN_EXAMINE_SOLUTION_ID => Box::new(TxAdminExamineSolution::from_raw(raw)?),
+            TX_ACCEPT_SCHOLARSHIP_ID     => Box::new(TxAcceptScholarship::from_raw(raw)?),
             _ => {
                 return Err(encoding::Error::IncorrectMessageType {
                     message_type: raw.message_type()
