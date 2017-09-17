@@ -497,7 +497,7 @@ fn main() {
 
     // Current state database
     //TODO: ERROR HANDLING
-    let db = LevelDB::open("/Applications/database", database_options).unwrap();
+    let db = LevelDB::open("~/.gotocc/db", database_options).unwrap();
     
     let services: Vec<Box<Service>> = vec![
         Box::new(CurrencyService),
