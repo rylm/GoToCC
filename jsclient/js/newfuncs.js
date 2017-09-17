@@ -2,11 +2,10 @@ function TxCreateWalletJSON(keys, name) {
     "use strict";
 
     var TxCreateWalletT = Exonum.newType({
-        size: 48,
+        size: 40,
         fields: {
             pub_key: {type: Exonum.PublicKey, size: 32, from: 0, to: 32},
-            name: {type: Exonum.String, size: 8, from: 32, to: 40},
-            balance: {type: Exonum.Int64, size: 8, from: 40, to: 48}
+            name: {type: Exonum.String, size: 8, from: 32, to: 40}
         }
     });
 
@@ -14,14 +13,13 @@ function TxCreateWalletJSON(keys, name) {
 
     var data = {
         pub_key: keyPair.publicKey,
-        name: name,
-        balance: '0'
+        name: name
     };
 
     var signature = Exonum.sign(keyPair.secretKey, data, TxCreateWalletT);
 
     var wallet = Exonum.newMessage({
-        size: 48,
+        size: 40,
         network_id: 0,
         protocol_version: 0,
         service_id: 1,
@@ -29,8 +27,7 @@ function TxCreateWalletJSON(keys, name) {
         signature: signature,
         fields: {
             pub_key: {type: Exonum.PublicKey, size: 32, from: 0, to: 32},
-            name: {type: Exonum.String, size: 8, from: 32, to: 40},
-            balance: {type: Exonum.Int64, size: 8, from: 40, to: 48}
+            name: {type: Exonum.String, size: 8, from: 32, to: 40}
         }
     });
 
@@ -39,8 +36,7 @@ function TxCreateWalletJSON(keys, name) {
     return {
         "body": {
             "pub_key": data.pub_key,
-            "name": data.name,
-            "balance": data.balance
+            "name": data.name
         },
         "network_id": 0,
         "protocol_version": 0,

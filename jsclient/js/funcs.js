@@ -1,7 +1,7 @@
 "use strict";
 
-const baseGetUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/';
-const postUrl = 'http://127.0.0.1:1488/api/services/cryptocurrency/v1/wallets/transaction';
+const baseGetUrl = 'http://127.0.0.1:8888/api/services/cryptocurrency/v1/';
+const postUrl = 'http://127.0.0.1:8888/api/services/cryptocurrency/v1/wallets/transaction';
 
 function checkStorage() {
     return !(typeof Storage === typeof undefined);
@@ -39,7 +39,8 @@ function genKeys() {
     console.log('Keys generated and saved!');
 }
 
-function importKeys(keyPair) {
+function importKeys(secretKey) {
+    const keyPair = Exonum.fromSecretKey(secretKey);
     localStorage.setItem('secretKey', keyPair.secretKey);
     localStorage.setItem('publicKey', keyPair.publicKey);
     console.log('Keys imported!');
@@ -54,26 +55,22 @@ function exportKeys() {
     return keyPair;
 }
 
-const mkGet = url => fetch(baseGetUrl + url)
+const mkGetJSON = url => fetch(baseGetUrl + url)
                       .then(checkStatus)
                       .then(parseJSON);
 
-const getOpenScholarships = () => mkGet('contracts/open');
+const getOpenScholarships = () => mkGetJSON('contracts/open');
 
-const getSubmittedSolutions = () => mkGet('contracts/users/done');
+const getSubmittedSolutions = () => mkGetJSON('contracts/users/done');
 
-const getApprovedSolutions = () => mkGet('contracts/admin/approved');
+const getApprovedSolutions = () => mkGetJSON('contracts/admin/approved');
+
+const getUserContracts = publicKey => mkGetJSON('contracts/users/sent_by_user/' + publicKey);
 
 function getUserInfo(publicKey) {
     fetch(baseGetUrl + 'wallet/' + publicKey)
             .then(checkStatus)
             .then(parseText);
-}
-
-function getUserContracts(publicKey) {
-    return fetch(baseGetUrl + 'contracts/users/sent_by_user/' + publicKey)
-            .then(checkStatus)
-            .then(parseJSON);
 }
 
 function sendTx(msg) {
@@ -103,7 +100,7 @@ function submitSolution(keys, signer_info, block) {
     sendTx(msg);
 }
 
-function voteForContract() {
+function voteForContract(keys, vote_status, block) {
     const msg = vote(keys, vote_status, block);
     sendTx(msg);
 }
