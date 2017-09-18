@@ -1,5 +1,5 @@
 [package]
-name = "GoToCC"
+name = "go_to_cc"
 version = "0.1.0"
 authors = ["rylm <danilov.sasha444@gmail.com>"]
 

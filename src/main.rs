@@ -7,12 +7,14 @@ extern crate iron;
 
 use std::fs::File;
 use std::io::{stdin, BufReader, BufRead};
+use std::collections::HashMap;
 
-use exonum::blockchain::{self, Blockchain, Service, Schema, GenesisConfig, ConsensusConfig,
+
+use exonum::blockchain::{self, Blockchain, Service, GenesisConfig, ConsensusConfig,
                          ValidatorKeys, Transaction, ApiContext};
 use exonum::node::{Node, NodeConfig, NodeApiConfig, TransactionSend,
                    ApiSender, NodeChannel};
-use exonum::messages::{RawTransaction, RawMessage, FromRaw, Message};
+use exonum::messages::{RawTransaction, FromRaw, Message};
 use exonum::storage::{Fork, MapIndex, LevelDB, LevelDBOptions};
 use exonum::crypto::{PublicKey, SecretKey, Hash, HexValue};
 use exonum::encoding::{self, Field};
@@ -23,11 +25,9 @@ use router::Router;
 
 
 
+
 // Service identifier
 const SERVICE_ID: u16 = 1;
-
-// Identifier for scholarship data initialization
-const TX_GOTO_FULL_SCHOLARSHIP_ID: u16 = 0;
 
 // Identifier for wallet creation transaction type
 const TX_CREATE_WALLET_ID: u16 = 1;
@@ -75,7 +75,7 @@ impl<'a> CurrencySchema<'a> {
         MapIndex::new(prefix, self.view)
     }
 
-    pub fn  task (&mut self, hash: &Hash) -> Option<ScholarshipTask> {
+    pub fn task (&mut self, hash: &Hash) -> Option<ScholarshipTask> {
         self.tasks().get(hash)
     }
 
@@ -164,7 +164,6 @@ encoding_struct! {
 }
 
 impl ScholarshipSolution {
-
     pub fn create(hash: &Hash, author: &PublicKey, url: &str) -> ScholarshipSolution {
         ScholarshipSolution::new(hash, author, url, CT_ADMIN_NOT_VOTED, CT_AUTHOR_NOT_VOTED)
     }
@@ -172,7 +171,6 @@ impl ScholarshipSolution {
     pub fn admin_accept (&mut self) {
         Field::write(&CT_ADMIN_ACCEPTANCE, &mut self.raw, 72, 73);
     }
-
 
     pub fn admin_reject (&mut self) {
         Field::write(&CT_ADMIN_REJECTION, &mut self.raw, 72, 73);
@@ -561,37 +559,82 @@ impl CryptocurrencyApi {
         schema.wallet(pub_key)
     }
 
-    fn get_cs_with_filter (&self, contract_filter: &Fn(&serde_json::Value)-> bool) -> Option<Vec<serde_json::Value>> {
-        let view = self.blockchain.fork();
-        let schema = Schema::new(view);
+    fn get_open_cs (&self) -> Option<serde_json::Value> { 
+        let mut view = self.blockchain.fork();
+        let mut schema = CurrencySchema { view: &mut view };
 
-        let transactions = schema.transactions();
+        let tasks = schema.tasks();
 
-        let all_cs: Vec<RawMessage> = transactions.values().collect();
+        let mut tasks_map: HashMap<Hash, ScholarshipTask> = HashMap::new();
 
-        // Unwrapping needed transactions -- TODO: change to map
-        let mut unwrapped_contracts : Vec<serde_json::Value> = Vec::new();
-        for tx in all_cs {
-            let tx = self.blockchain.tx_from_raw(tx).unwrap();
-            let info = tx.info();
-            match info.as_object() {
-                Some(obj) => {
-                    if obj["message_id"] == TX_GOTO_FULL_SCHOLARSHIP_ID {
-                        unwrapped_contracts.push(obj["body"].clone());
-                    }
-                },
-                None => {},
+        for (hash, task) in tasks.iter() {
+            if task.is_open() {
+                tasks_map.insert(hash, task);
             }
         }
 
-        // Filtering 
-        let filtered_contracts : Vec<serde_json::Value> = unwrapped_contracts.into_iter().filter(contract_filter).collect();
-
-        if filtered_contracts.len() == 0 {
+        if tasks_map.is_empty() {
             return None;
         }
 
-        return Some(filtered_contracts);
+        return Some(serde_json::to_value(tasks_map).unwrap());
+    }
+
+
+    // костыль
+    fn db_contains_task (&self, hash: &Hash) -> bool {
+        let mut view = self.blockchain.fork();
+        let mut schema = CurrencySchema { view: &mut view };
+
+        schema.tasks().contains(hash)
+    }
+
+    fn get_solutions_with_filter (&self, solution_filter: &Fn(&ScholarshipSolution)-> bool) -> Option<serde_json::Value> {
+        let mut view = self.blockchain.fork();
+        let mut schema = CurrencySchema { view: &mut view };
+
+        let solutions_table = schema.solutions();
+
+        let mut map: HashMap<Hash, ScholarshipSolution> = HashMap::new();
+
+        for (hash, solution) in solutions_table.iter() {
+            if self.db_contains_task(solution.task_hash()) && solution_filter(&solution) {
+                map.insert(hash, solution);
+            }
+        }
+
+        if map.is_empty() {
+            return None;
+        }
+
+        return Some(serde_json::to_value(map).unwrap());    
+    }
+
+    fn get_submitted_cs_by_user (&self, user_key: &PublicKey) -> Option<Vec<serde_json::Value>> {
+        let mut view = self.blockchain.fork();
+        let mut schema = CurrencySchema { view: &mut view };
+
+        let solutions_table = schema.solutions();
+        let solutions = solutions_table.values();
+
+        let mut user_contracts: Vec<serde_json::Value> = Vec::new();
+
+        for solution in solutions {
+            if self.db_contains_task(solution.task_hash())  && solution.author() == user_key {
+                if let Ok(json) = serde_json::to_value(solution) {
+                    user_contracts.push(json);
+                }
+                else {
+                    println!("Could not serialize");
+                }
+            }
+        }
+
+        if user_contracts.len() == 0 {
+            return None;
+        }
+
+        return Some(user_contracts);
     }
 }
 
@@ -642,58 +685,64 @@ impl Api for CryptocurrencyApi {
                     "Empty request body".into()))?,
                 Err(e) => Err(ApiError::IncorrectRequest(Box::new(e)))?,
             }
-        };
+        };       
 
-        
-        fn initialised (tx: &serde_json::Value) -> bool {
-            let empty_key = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-            if tx["pub_key"] == empty_key { true }
-            else  { false }
+        fn not_voted (tx: &ScholarshipSolution) -> bool {
+            tx.admin_acceptance() == 0 
         }
 
-        fn not_voted (tx: &serde_json::Value) -> bool {
-            if !initialised(tx) && tx["vote_status"] == "0" { true }
-            else { false }
-        }
-
-        fn approved (tx: &serde_json::Value) -> bool {
-            if tx["vote_status"] == "1" {true}
-            else {false}
-        }
-
-        // Contracts, avaliable for assigning
-        let self_ = self.clone();
-        let open_contracts = move |_: &mut Request| -> IronResult<Response> {
-            match self_.get_cs_with_filter(&initialised) {
-                Some(contracts) => {
-                    self_.ok_response(&serde_json::to_value(contracts).unwrap())
-                }
-                None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
-            }
-        };
-           
-        // Done contracts, avaliavle for voting
-        let self_ = self.clone();
-        let done_contracts = move |_: &mut Request| -> IronResult<Response> {
-            match self_.get_cs_with_filter(&not_voted) {
-                Some(contracts) => {
-                    self_.ok_response(&serde_json::to_value(contracts).unwrap())
-                }
-                None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
-            }
-        };
+        fn approved (tx: &ScholarshipSolution) -> bool {
+            tx.admin_acceptance() == 1
+        }  
 
         // Solutions, submitted by user 
         let self_ = self.clone();
         let submitted_contracts = move |req: &mut Request| -> IronResult<Response> {
             let path = req.url.path();
             let user_key = path.last().unwrap().clone();
-            if let Some(contracts) = self_.get_cs_with_filter( 
-                    &|tx: &serde_json::Value| {if tx["pub_key"] == user_key {true}
-                                              else {false} }) {
-                self_.ok_response(&serde_json::to_value(contracts).unwrap())
-            } else {
-                self_.not_found_response(&serde_json::to_value("No contracts submitted").unwrap())
+            if let Ok(user_key) = PublicKey::from_hex(user_key) {
+                if let Some(contracts) = self_.get_submitted_cs_by_user(&user_key){
+                    self_.ok_response(&serde_json::to_value(contracts).unwrap())
+                } else {
+                    self_.not_found_response(&serde_json::to_value("No contracts submitted").unwrap())
+                }
+            }  
+            else {
+                self_.not_found_response(&serde_json::to_value("Wrong key format").unwrap())
+            } 
+        };
+
+        // Contracts, avaliable for assigning
+        let self_ = self.clone();
+        let open_contracts = move |_: &mut Request| -> IronResult<Response> {
+            match self_.get_open_cs() {
+                Some(contracts) => {
+                    self_.ok_response(&contracts)
+                }
+                None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
+            }
+        };
+         
+
+        // Done contracts, avaliavle for voting
+        let self_ = self.clone();
+        let done_contracts = move |_: &mut Request| -> IronResult<Response> {
+            match self_.get_solutions_with_filter(&not_voted) {
+                Some(contracts) => {
+                    self_.ok_response(&contracts)
+                }
+                None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
+            }
+        };
+
+        // Contracts signed by admin
+        let self_ = self.clone();
+        let admin_contracts = move |_: &mut Request| -> IronResult<Response> {
+            match self_.get_solutions_with_filter(&approved) {
+                Some(contracts) => {
+                    self_.ok_response(&contracts)
+                }
+                None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
             }
         };
 
@@ -709,18 +758,6 @@ impl Api for CryptocurrencyApi {
                 self_.not_found_response(&serde_json::to_value("Wallet not found").unwrap())
             }
         };
-
-        // Contracts signed by admin
-        let self_ = self.clone();
-        let admin_contracts = move |_: &mut Request| -> IronResult<Response> {
-            match self_.get_cs_with_filter(&approved) {
-                Some(contracts) => {
-                    self_.ok_response(&serde_json::to_value(contracts).unwrap())
-                }
-                None => self_.not_found_response(&serde_json::to_value("No open contracts avaliable").unwrap())
-            }
-        };
-
 
         // Bind the transaction handler to a specific route.
         let route_post = "/v1/wallets/transaction";
