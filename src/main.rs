@@ -96,23 +96,29 @@ impl<'a> CurrencySchema<'a> {
 
 encoding_struct! {
     struct Wallet {
-        const SIZE = 48;
+        const SIZE = 80;
 
         field pub_key: &PublicKey [00 => 32]
+        
         field name:    &str       [32 => 40]
-        field balance: u64        [40 => 48]
+        field age:     &str       [40 => 48]
+        field email:   &str       [48 => 56]
+        field city:    &str       [56 => 64]
+        field school:  &str       [64 => 72]
+
+        field balance: u64        [72 => 80]
     }
 }
 
 impl Wallet {
     pub fn increase(&mut self, amount: u64) {
         let balance = self.balance() + amount;
-        Field::write(&balance, &mut self.raw, 40, 48);
+        Field::write(&balance, &mut self.raw, 72, 80);
     }
 
     pub fn decrease(&mut self, amount: u64) {
         let balance = self.balance() - amount;
-        Field::write(&balance, &mut self.raw, 40, 48);
+        Field::write(&balance, &mut self.raw, 72, 80);
     }
 }
 
@@ -510,10 +516,16 @@ message! {
     struct TxCreateWallet {
         const TYPE = SERVICE_ID;
         const ID = TX_CREATE_WALLET_ID;
-        const SIZE = 40;
+        const SIZE = 72;
 
-        field pub_key:     &PublicKey  [00 => 32]
-        field name:        &str        [32 => 40]
+        field pub_key: &PublicKey  [00 => 32]
+
+        field name:    &str       [32 => 40]
+        field age:     &str       [40 => 48]
+        field email:   &str       [48 => 56]
+        field city:    &str       [56 => 64]
+        field school:  &str       [64 => 72]
+
     }
 }
 
@@ -527,6 +539,10 @@ impl Transaction for TxCreateWallet {
         if schema.wallet(self.pub_key()).is_none() {
             let wallet = Wallet::new(self.pub_key(),
                                      self.name(),
+                                     self.age(),
+                                     self.email(),
+                                     self.city(),
+                                     self.school(),
                                      INIT_BALANCE);
             println!("Create the wallet: {:?}", wallet);
             schema.wallets().put(self.pub_key(), wallet)
