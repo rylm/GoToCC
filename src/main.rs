@@ -588,6 +588,14 @@ impl CryptocurrencyApi {
 
         schema.tasks().contains(hash)
     }
+    // костыль
+    fn db_contains_wallet (&self, key: &PublicKey) -> bool {
+        let mut view = self.blockchain.fork();
+        let mut schema = CurrencySchema { view: &mut view };
+
+        schema.wallets().contains(key)
+    }
+
 
     fn get_solutions_with_filter (&self, solution_filter: &Fn(&ScholarshipSolution)-> bool) -> Option<serde_json::Value> {
         let mut view = self.blockchain.fork();
@@ -598,7 +606,9 @@ impl CryptocurrencyApi {
         let mut map: HashMap<Hash, ScholarshipSolution> = HashMap::new();
 
         for (hash, solution) in solutions_table.iter() {
-            if self.db_contains_task(solution.task_hash()) && solution_filter(&solution) {
+            if self.db_contains_task(solution.task_hash()) &&
+               self.db_contains_wallet(solution.author())  &&
+               solution_filter(&solution) {
                 map.insert(hash, solution);
             }
         }
@@ -620,7 +630,9 @@ impl CryptocurrencyApi {
         let mut user_contracts: Vec<serde_json::Value> = Vec::new();
 
         for solution in solutions {
-            if self.db_contains_task(solution.task_hash())  && solution.author() == user_key {
+            if self.db_contains_task(solution.task_hash()) &&
+               self.db_contains_wallet(solution.author()) &&
+               solution.author() == user_key {
                 if let Ok(json) = serde_json::to_value(solution) {
                     user_contracts.push(json);
                 }
